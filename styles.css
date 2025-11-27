@@ -17,6 +17,9 @@ body {
 .container {
   text-align: center;
   padding: 2rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .animation-container {
@@ -77,39 +80,54 @@ body {
   max-width: 800px;
   margin: 0 auto;
   text-align: left;
-  line-height: 1.6;
+  line-height: 1.8;
   font-size: 1.2rem;
+  padding: 0 1rem;
 }
 
 .content section {
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
 }
 
 .content h2 {
   font-size: 2rem;
-  margin-bottom: 1rem;
-  margin-top: 2rem;
+  margin-bottom: 1.5rem;
+  margin-top: 2.5rem;
   color: #4a4a35;
+  line-height: 1.3;
 }
 
 .content h3 {
   font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-  margin-top: 1rem;
+  margin-bottom: 1rem;
+  margin-top: 1.5rem;
   color: #4a4a35;
+  line-height: 1.3;
 }
 
 .content p {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.8;
 }
 
 .content ul {
-  margin-left: 2rem;
-  margin-bottom: 1rem;
+  margin-left: 0;
+  margin-bottom: 1.5rem;
+  padding-left: 2rem;
+  list-style-position: outside;
+}
+
+.content ol {
+  margin-left: 0;
+  margin-bottom: 1.5rem;
+  padding-left: 2rem;
+  list-style-position: outside;
 }
 
 .content li {
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.8;
+  padding-left: 0.5rem;
 }
 
 .content a {
@@ -123,13 +141,19 @@ body {
 
 .last-updated {
   font-style: italic;
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
   text-align: center;
+  line-height: 1.8;
 }
 
 .contact-info {
   background-color: rgba(74, 74, 53, 0.1);
-  padding: 1.5rem;
+  padding: 2rem;
   border-radius: 8px;
   margin-bottom: 2rem;
+  line-height: 1.8;
+}
+
+.contact-info p {
+  margin-bottom: 1rem;
 }
