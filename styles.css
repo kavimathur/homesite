@@ -1,0 +1,44 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #cccc97;
+  color: #4a4a35;
+  font-family: 'VT323', monospace;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.container {
+  text-align: center;
+  padding: 2rem;
+}
+
+.animation-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 360px;
+  margin-bottom: 0.5rem;
+}
+
+#teapot-animation {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  background: none;
+}
+
+.message {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-top: 0.5rem;
+  color: #4a4a35;
+}

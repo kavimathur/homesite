@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teapot Labs - Coming Soon</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=VT323&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="animation-container">
+        <svg
+          id="teapot-animation"
+          width="400"
+          height="300"
+          viewBox="0 0 400 300"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <!-- Teapot (centered, simple, clean drawing) -->
+          <g
+            id="teapot-group"
+            transform="translate(200, 150)"
+            stroke="#4a4a35"
+            stroke-width="6"
+            stroke-linejoin="round"
+            stroke-linecap="round"
+            fill="none"
+          >
+            <!-- Body (rounded, bulbous shape) -->
+            <ellipse cx="0" cy="0" rx="35" ry="30" />
+            <!-- Spout (curved, angled upward) -->
+            <path
+              d="M -35 -5 Q -55 -15, -65 -10 Q -70 -5, -65 5 Q -60 10, -50 5"
+            />
+            <!-- Handle (curved, on the right) -->
+            <path d="M 35 -10 Q 50 -15, 55 0 Q 50 15, 35 10" />
+            <!-- Lid (rounded top) -->
+            <ellipse cx="0" cy="-30" rx="25" ry="8" />
+            <!-- Lid knob (small circle) -->
+            <circle cx="0" cy="-37" r="4" />
+            <!-- Base (slight curve at bottom) -->
+            <ellipse cx="0" cy="30" rx="30" ry="5" />
+          </g>
+          <!-- Steam wisps (animated) -->
+          <g
+            id="steam-group"
+            stroke="#4a4a35"
+            stroke-width="4"
+            fill="none"
+            opacity="0.6"
+          >
+            <path
+              id="steam1"
+              d="M 135 140 Q 130 120, 125 100 Q 120 80, 125 60"
+              stroke-linecap="round"
+            >
+              <animate
+                attributeName="opacity"
+                values="0;0.6;0"
+                dur="2s"
+                repeatCount="indefinite"
+              />
+              <animate
+                attributeName="d"
+                values="M 135 140 Q 130 120, 125 100 Q 120 80, 125 60;M 135 140 Q 133 120, 128 100 Q 123 80, 128 60;M 135 140 Q 130 120, 125 100 Q 120 80, 125 60"
+                dur="2s"
+                repeatCount="indefinite"
+              />
+            </path>
+            <path
+              id="steam2"
+              d="M 145 140 Q 140 120, 135 100 Q 130 80, 135 60"
+              stroke-linecap="round"
+            >
+              <animate
+                attributeName="opacity"
+                values="0;0.6;0"
+                dur="2s"
+                begin="0.3s"
+                repeatCount="indefinite"
+              />
+              <animate
+                attributeName="d"
+                values="M 145 140 Q 140 120, 135 100 Q 130 80, 135 60;M 145 140 Q 143 120, 138 100 Q 133 80, 138 60;M 145 140 Q 140 120, 135 100 Q 130 80, 135 60"
+                dur="2s"
+                begin="0.3s"
+                repeatCount="indefinite"
+              />
+            </path>
+            <path
+              id="steam3"
+              d="M 155 140 Q 150 120, 145 100 Q 140 80, 145 60"
+              stroke-linecap="round"
+            >
+              <animate
+                attributeName="opacity"
+                values="0;0.6;0"
+                dur="2s"
+                begin="0.6s"
+                repeatCount="indefinite"
+              />
+              <animate
+                attributeName="d"
+                values="M 155 140 Q 150 120, 145 100 Q 140 80, 145 60;M 155 140 Q 153 120, 148 100 Q 143 80, 148 60;M 155 140 Q 150 120, 145 100 Q 140 80, 145 60"
+                dur="2s"
+                begin="0.6s"
+                repeatCount="indefinite"
+              />
+            </path>
+          </g>
+        </svg>
+      </div>
+      <h1 class="message">Something's brewing</h1>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>
