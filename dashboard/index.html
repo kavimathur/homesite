@@ -1260,7 +1260,7 @@
       try { localStorage.setItem(MEMORY_SECRET_KEY, __ADMIN_SECRET_SENTINEL); } catch (_e) {}
       __SECRET_INPUT_IDS.forEach(function (id) {
         const el = document.getElementById(id);
-        if (el) { el.value = __ADMIN_SECRET_SENTINEL; if (el.parentElement) el.parentElement.style.display = 'none'; }
+        if (el) { el.value = __ADMIN_SECRET_SENTINEL; el.style.display = 'none'; }
       });
     }
     async function __refreshAuth() {
