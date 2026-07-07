@@ -1,0 +1,3405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Joice KPI Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f1117;
+      color: #e4e4e7;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #f4f4f5;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    #last-updated {
+      font-size: 0.8rem;
+      color: #71717a;
+    }
+
+    #refresh-btn {
+      background: #27272a;
+      color: #e4e4e7;
+      border: 1px solid #3f3f46;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.15s;
+    }
+
+    #refresh-btn:hover { background: #3f3f46; }
+    #refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      padding: 1.5rem;
+      transition: border-color 0.15s;
+    }
+
+    .card:hover { border-color: #3f3f46; }
+
+    .card-label {
+      font-size: 0.8rem;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-value {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: #f4f4f5;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .card-value.loading {
+      color: #52525b;
+    }
+
+    #error-banner {
+      display: none;
+      background: #3b1219;
+      border: 1px solid #7f1d1d;
+      color: #fca5a5;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+
+    /* Charts section */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-header h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f4f4f5;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 0.25rem;
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 0.25rem;
+    }
+
+    .filter-btn {
+      background: transparent;
+      color: #a1a1aa;
+      border: none;
+      padding: 0.4rem 0.85rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+
+    .filter-btn:hover { color: #e4e4e7; }
+    .filter-btn.active {
+      background: #27272a;
+      color: #f4f4f5;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 1rem;
+    }
+
+    .chart-card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+
+    .chart-card-label {
+      font-size: 0.8rem;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 200px;
+    }
+
+    /* Callers table */
+    .table-card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-top: 1.5rem;
+      overflow-x: auto;
+    }
+
+    .callers-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .callers-table th {
+      text-align: left;
+      font-size: 0.75rem;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.5rem 1rem;
+      border-bottom: 1px solid #27272a;
+      font-weight: 500;
+    }
+
+    .callers-table td {
+      padding: 0.65rem 1rem;
+      font-size: 0.9rem;
+      border-bottom: 1px solid #1e1e22;
+    }
+
+    .callers-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .callers-table tr:hover td {
+      background: #1e1e24;
+    }
+
+    .callers-table .count {
+      font-variant-numeric: tabular-nums;
+      color: #a1a1aa;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: #52525b;
+      font-size: 0.9rem;
+    }
+
+    /* Tabs */
+    .tab-bar {
+      display: flex;
+      gap: 0.25rem;
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 0.25rem;
+      margin-bottom: 1.5rem;
+      width: fit-content;
+    }
+    .tab-btn {
+      background: transparent;
+      color: #a1a1aa;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { color: #e4e4e7; }
+    .tab-btn.active {
+      background: #27272a;
+      color: #f4f4f5;
+    }
+    .tab-panel[hidden] { display: none; }
+
+    /* Memory tab */
+    .memory-controls {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+    .memory-input {
+      background: #18181b;
+      color: #e4e4e7;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+      font-family: inherit;
+      min-width: 320px;
+    }
+    .memory-input:focus {
+      outline: none;
+      border-color: #3f3f46;
+    }
+    .memory-select {
+      background: #18181b;
+      color: #e4e4e7;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+      min-width: 320px;
+    }
+    .memory-btn {
+      background: #27272a;
+      color: #e4e4e7;
+      border: 1px solid #3f3f46;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .memory-btn:hover { background: #3f3f46; }
+
+    /* Opening Lines + Realtime Prompt tabs */
+    .ol-help {
+      color: #71717a;
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+    }
+    .ol-item {
+      padding: 0.85rem;
+      background: #0f1117;
+      border: 1px solid #1e1e22;
+      border-radius: 8px;
+      margin-bottom: 0.75rem;
+    }
+    .ol-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 0.35rem;
+    }
+    .ol-item-title {
+      font-weight: 600;
+      color: #f4f4f5;
+      font-size: 0.95rem;
+    }
+    .ol-item-key {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.75rem;
+      color: #52525b;
+    }
+    .ol-item-subtitle {
+      color: #a1a1aa;
+      font-size: 0.82rem;
+      margin-bottom: 0.6rem;
+    }
+    .ol-textarea {
+      width: 100%;
+      background: #18181b;
+      color: #e4e4e7;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      padding: 0.55rem 0.7rem;
+      font-size: 0.88rem;
+      font-family: inherit;
+      line-height: 1.5;
+      min-height: 3.5rem;
+      resize: vertical;
+    }
+    .ol-textarea:focus {
+      outline: none;
+      border-color: #3f3f46;
+    }
+    .ol-item-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.4rem;
+      font-size: 0.72rem;
+      color: #52525b;
+    }
+    .ol-status {
+      font-size: 0.72rem;
+      color: #71717a;
+    }
+    .ol-status.saved { color: #22c55e; }
+    .ol-status.saving { color: #a1a1aa; }
+    .ol-status.error { color: #ef4444; }
+    .ol-tod-chip {
+      display: inline-block;
+      margin-left: 0.5rem;
+      padding: 0.1rem 0.5rem;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: #94a3b8;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .ol-delete-btn {
+      font-size: 0.72rem;
+      padding: 0.25rem 0.6rem;
+      color: #f87171;
+      border-color: #3f1d1d;
+    }
+    .ol-delete-btn:hover:not(:disabled) {
+      background: #2a1213;
+      border-color: #7f1d1d;
+    }
+    .ol-delete-btn:disabled { opacity: 0.5; cursor: default; }
+    .rp-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    .rp-meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 0.78rem;
+      color: #71717a;
+      margin-top: 0.45rem;
+    }
+    .rp-stats {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #52525b;
+    }
+    .rp-textarea {
+      min-height: 420px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .ol-new-btn {
+      font-size: 0.72rem;
+      padding: 0.28rem 0.65rem;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .ol-new-form {
+      background: #0f1117;
+      border: 1px dashed #3f3f46;
+      border-radius: 8px;
+      padding: 0.9rem;
+      margin-bottom: 0.9rem;
+    }
+    .ol-new-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+      margin-bottom: 0.5rem;
+    }
+    .ol-new-row {
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    .ol-new-field-label {
+      display: block;
+      font-size: 0.68rem;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.2rem;
+    }
+    .ol-new-field-label em {
+      font-style: normal;
+      color: #52525b;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .ol-new-form .memory-input,
+    .ol-new-form .ol-textarea {
+      width: 100%;
+      min-width: 0;
+    }
+    .ol-new-actions {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+      margin-top: 0.35rem;
+    }
+    .ol-new-primary {
+      background: #3f3f46;
+    }
+    .ol-new-primary:hover {
+      background: #52525b;
+    }
+    .ol-edit-form {
+      background: #0c0e14;
+      border: 1px dashed #3f3f46;
+      border-radius: 8px;
+      padding: 0.9rem;
+      margin-top: 0.6rem;
+    }
+    .ol-edit-form .memory-input {
+      width: 100%;
+      min-width: 0;
+    }
+    .ol-row-actions {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .ol-edit-btn {
+      font-size: 0.72rem;
+      padding: 0.25rem 0.6rem;
+    }
+
+    .olp-criterion-row {
+      display: grid;
+      grid-template-columns: 160px 1fr 34px;
+      gap: 0.4rem;
+      margin-bottom: 0.35rem;
+    }
+    .olp-criterion-remove {
+      padding: 0.35rem 0;
+      font-weight: 600;
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .olp-add-criterion-btn {
+      margin-top: 0.35rem;
+      font-size: 0.75rem;
+      padding: 0.3rem 0.7rem;
+    }
+
+    .memory-section {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .memory-section h3 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .memory-section h3 .meta {
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: normal;
+      color: #71717a;
+      font-size: 0.8rem;
+    }
+
+    .profile-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem 2rem;
+      font-size: 0.9rem;
+    }
+    .profile-grid dt {
+      color: #71717a;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      align-self: center;
+    }
+    .profile-grid dd {
+      color: #e4e4e7;
+      line-height: 1.5;
+    }
+    .profile-grid dd ul { list-style: none; padding: 0; }
+    .profile-grid dd li {
+      padding: 0.15rem 0;
+    }
+    .empty-dd { color: #52525b; font-style: italic; }
+
+    .themes-list, .recaps-list, .calls-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .theme-item, .recap-item, .call-item {
+      padding: 0.75rem;
+      background: #0f1117;
+      border: 1px solid #1e1e22;
+      border-radius: 8px;
+    }
+    .theme-title, .recap-when, .call-when {
+      font-weight: 600;
+      color: #f4f4f5;
+      font-size: 0.95rem;
+      margin-bottom: 0.35rem;
+    }
+    .theme-summary {
+      color: #a1a1aa;
+      font-size: 0.85rem;
+      margin-bottom: 0.35rem;
+    }
+    .theme-bullets, .recap-body, .call-body {
+      color: #d4d4d8;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .theme-meta, .call-meta {
+      color: #52525b;
+      font-size: 0.75rem;
+      margin-top: 0.35rem;
+    }
+
+    .prompt-preview {
+      background: #0f1117;
+      border: 1px solid #1e1e22;
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8rem;
+      color: #d4d4d8;
+      white-space: pre-wrap;
+      line-height: 1.55;
+      max-height: 600px;
+      overflow: auto;
+    }
+    .prompt-stats {
+      display: flex;
+      gap: 1rem;
+      font-size: 0.8rem;
+      color: #a1a1aa;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .prompt-stats .stat {
+      background: #0f1117;
+      border: 1px solid #1e1e22;
+      border-radius: 6px;
+      padding: 0.35rem 0.65rem;
+    }
+    .prompt-stats .stat b {
+      color: #f4f4f5;
+      font-variant-numeric: tabular-nums;
+    }
+    .budget-ok { color: #22c55e; }
+    .budget-warn { color: #f59e0b; }
+    .budget-hot { color: #ef4444; }
+
+    /* Call Inspector tab */
+    .ci-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      align-items: start;
+    }
+    @media (max-width: 1100px) {
+      .ci-split { grid-template-columns: 1fr; }
+    }
+    .ci-left, .ci-right { min-width: 0; }
+
+    .ci-section {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .ci-section h3 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.6rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .ci-section h3 .meta { font-weight: 400; text-transform: none; letter-spacing: normal; color: #71717a; font-size: 0.75rem; }
+
+    .ci-transcript {
+      max-height: 500px;
+      overflow: auto;
+    }
+    .ci-msg { padding: 0.35rem 0; font-size: 0.85rem; line-height: 1.5; }
+    .ci-msg .ci-speaker { font-weight: 600; margin-right: 0.4rem; }
+    .ci-msg .ci-speaker-you { color: #3b82f6; }
+    .ci-msg .ci-speaker-ai { color: #a855f7; }
+    .ci-msg .ci-time { color: #52525b; font-size: 0.7rem; margin-left: 0.5rem; }
+
+    .ci-kv-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.25rem 0.75rem;
+      font-size: 0.85rem;
+    }
+    .ci-kv-grid dt { color: #71717a; white-space: nowrap; }
+    .ci-kv-grid dd { color: #e4e4e7; word-break: break-word; }
+
+    .ci-chunk {
+      background: #0f1117;
+      border: 1px solid #1e1e22;
+      border-radius: 8px;
+      padding: 0.65rem;
+      margin-bottom: 0.5rem;
+    }
+    .ci-chunk-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #71717a;
+      margin-bottom: 0.35rem;
+    }
+    .ci-chunk-content {
+      font-size: 0.85rem;
+      color: #d4d4d8;
+      white-space: pre-wrap;
+      line-height: 1.45;
+      max-height: 120px;
+      overflow: auto;
+    }
+    .ci-chunk-vec {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.7rem;
+      color: #52525b;
+      margin-top: 0.3rem;
+      word-break: break-all;
+    }
+    .ci-chunk-vec.expanded { color: #71717a; max-height: 200px; overflow: auto; }
+
+    .ci-toggle-vec {
+      background: none; border: none; color: #3b82f6; cursor: pointer;
+      font-size: 0.7rem; padding: 0; text-decoration: underline;
+    }
+
+    .ci-analysis-block {
+      background: #0f1117;
+      border: 1px solid #1e1e22;
+      border-radius: 8px;
+      padding: 0.65rem;
+      margin-bottom: 0.5rem;
+    }
+    .ci-analysis-block h4 {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #a1a1aa;
+      margin-bottom: 0.35rem;
+    }
+    .ci-analysis-block pre {
+      font-size: 0.8rem;
+      color: #d4d4d8;
+      white-space: pre-wrap;
+      line-height: 1.4;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .ci-note-area {
+      position: sticky;
+      top: 1rem;
+    }
+    .ci-note-textarea {
+      width: 100%;
+      min-height: 400px;
+      background: #0f1117;
+      color: #e4e4e7;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      resize: vertical;
+    }
+    .ci-note-textarea:focus { outline: none; border-color: #3f3f46; }
+    .ci-note-status {
+      font-size: 0.75rem;
+      color: #52525b;
+      margin-top: 0.35rem;
+      text-align: right;
+    }
+    .ci-note-status.saved { color: #22c55e; }
+  </style>
+</head>
+<body>
+  <div id="admin-login-gate" style="position:fixed;inset:0;z-index:99999;background:#0b0d12;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;font-family:system-ui,-apple-system,sans-serif;color:#e8e8ec;">
+    <div style="font-size:22px;font-weight:600;">Joice Admin</div>
+    <div style="font-size:14px;color:#9aa0ab;">Sign in to access the dashboard</div>
+    <button id="admin-google-btn" onclick="adminSignIn()" style="padding:10px 20px;font-size:15px;border-radius:8px;border:1px solid #3a3f4b;background:#fff;color:#1a1a1a;cursor:pointer;font-weight:500;">Sign in with Google</button>
+    <div id="admin-login-msg" style="font-size:13px;color:#f2777a;min-height:18px;"></div>
+    <button id="admin-signout-btn" onclick="adminSignOut()" style="display:none;padding:6px 14px;font-size:13px;border-radius:6px;border:1px solid #3a3f4b;background:transparent;color:#9aa0ab;cursor:pointer;">Sign out &amp; try another account</button>
+  </div>
+  <header>
+    <h1>Joice KPI Dashboard</h1>
+    <div class="header-right">
+      <span id="last-updated"></span>
+      <button id="refresh-btn" onclick="refreshAll()">Refresh</button>
+    </div>
+  </header>
+
+  <div id="error-banner"></div>
+
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="kpi" onclick="switchTab('kpi', this)">KPIs</button>
+    <button class="tab-btn" data-tab="memory" onclick="switchTab('memory', this)">User Memory</button>
+    <button class="tab-btn" data-tab="calls" onclick="switchTab('calls', this)">Call Inspector</button>
+    <button class="tab-btn" data-tab="openings" onclick="switchTab('openings', this)">Opening Lines</button>
+    <button class="tab-btn" data-tab="realtime-prompt" onclick="switchTab('realtime-prompt', this)">Realtime Prompt</button>
+    <button class="tab-btn" data-tab="realtime-prompt-dev" onclick="switchTab('realtime-prompt-dev', this)">Dev Realtime Prompt</button>
+    <button class="tab-btn" data-tab="onboarding-intro-prompt" onclick="switchTab('onboarding-intro-prompt', this)">Onboarding Intro</button>
+    <button class="tab-btn" data-tab="onboarding-first-entry-prompt" onclick="switchTab('onboarding-first-entry-prompt', this)">Onboarding First Entry</button>
+    <button class="tab-btn" data-tab="onboarding-session-prompts" onclick="switchTab('onboarding-session-prompts', this)">First-Session Prompts</button>
+  </nav>
+
+  <div id="tab-kpi" class="tab-panel">
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">Total Users</div>
+      <div class="card-value loading" id="total-users">--</div>
+    </div>
+    <div class="card">
+      <div class="card-label">New Users Today</div>
+      <div class="card-value loading" id="new-users-today">--</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Calls Today</div>
+      <div class="card-value loading" id="calls-today">--</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Unique Callers Today</div>
+      <div class="card-value loading" id="unique-callers-today">--</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Avg Call Duration</div>
+      <div class="card-value loading" id="avg-duration">--</div>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <h2>Trends</h2>
+    <div class="filter-group">
+      <button class="filter-btn" onclick="setRange(1, this)">Today</button>
+      <button class="filter-btn active" onclick="setRange(7, this)">7D</button>
+      <button class="filter-btn" onclick="setRange(30, this)">30D</button>
+      <button class="filter-btn" onclick="setRange(null, this)">All Time</button>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-card-label">Total Users</div>
+      <div class="chart-wrap"><canvas id="chart-total-users"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-label">New Users</div>
+      <div class="chart-wrap"><canvas id="chart-new-users"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-label">Calls</div>
+      <div class="chart-wrap"><canvas id="chart-calls"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-label">Unique Callers</div>
+      <div class="chart-wrap"><canvas id="chart-unique-callers"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-label">Avg Call Duration</div>
+      <div class="chart-wrap"><canvas id="chart-avg-duration"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section-header" style="margin-top: 2rem;">
+    <h2>Active Callers</h2>
+  </div>
+  <div class="table-card">
+    <table class="callers-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Calls</th>
+          <th>Avg Duration</th>
+        </tr>
+      </thead>
+      <tbody id="callers-tbody">
+        <tr><td colspan="2" class="empty-state">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  </div><!-- /tab-kpi -->
+
+  <div id="tab-memory" class="tab-panel" hidden>
+    <div class="memory-controls">
+      <input type="password" id="memory-secret-input" class="memory-input" placeholder="Admin dashboard secret" autocomplete="off">
+      <button class="memory-btn" onclick="loadMemoryUsers()">Connect</button>
+      <select id="memory-user-select" class="memory-select" onchange="loadSelectedUserMemory()" style="display:none">
+        <option value="">Pick a user…</option>
+      </select>
+    </div>
+
+    <div id="memory-error" class="empty-state" style="display:none"></div>
+    <div id="memory-body" style="display:none">
+      <section class="memory-section">
+        <h3>Profile <span class="meta" id="profile-meta"></span></h3>
+        <dl class="profile-grid" id="profile-grid"></dl>
+      </section>
+
+      <section class="memory-section">
+        <h3>Ongoing Themes <span class="meta" id="themes-meta"></span></h3>
+        <div class="themes-list" id="themes-list"></div>
+      </section>
+
+      <section class="memory-section">
+        <h3>Recent Recaps <span class="meta" id="recaps-meta"></span></h3>
+        <div class="recaps-list" id="recaps-list"></div>
+      </section>
+
+      <section class="memory-section">
+        <h3>Recent Calls (last 10) <span class="meta" id="calls-meta"></span></h3>
+        <div class="calls-list" id="calls-list"></div>
+      </section>
+
+      <section class="memory-section">
+        <h3>Assembled Prompt Preview <span class="meta" id="prompt-meta"></span></h3>
+        <div class="prompt-stats" id="prompt-stats"></div>
+        <pre class="prompt-preview" id="prompt-preview"></pre>
+      </section>
+    </div>
+  </div><!-- /tab-memory -->
+
+  <div id="tab-calls" class="tab-panel" hidden>
+    <div class="memory-controls">
+      <input type="password" id="ci-secret-input" class="memory-input" placeholder="Admin dashboard secret" autocomplete="off">
+      <button class="memory-btn" onclick="ciConnect()">Connect</button>
+      <select id="ci-user-select" class="memory-select" onchange="ciLoadCalls()" style="display:none">
+        <option value="">Pick a user…</option>
+      </select>
+      <select id="ci-call-select" class="memory-select" onchange="ciLoadCallDetails()" style="display:none">
+        <option value="">Pick a call…</option>
+      </select>
+    </div>
+    <div id="ci-error" class="empty-state" style="display:none"></div>
+    <div id="ci-body" style="display:none">
+      <div class="ci-split">
+        <div class="ci-left">
+          <section class="ci-section">
+            <h3>Call Metadata</h3>
+            <dl class="ci-kv-grid" id="ci-call-meta"></dl>
+          </section>
+
+          <section class="ci-section">
+            <h3>Transcript <span class="meta" id="ci-transcript-meta"></span></h3>
+            <div class="ci-transcript" id="ci-transcript"></div>
+          </section>
+
+          <section class="ci-section">
+            <h3>Prompt Telemetry <span class="meta" id="ci-telemetry-meta"></span></h3>
+            <dl class="ci-kv-grid" id="ci-telemetry"></dl>
+            <div id="ci-prompt-container" style="display:none; margin-top:0.75rem">
+              <button class="ci-toggle-vec" id="ci-prompt-toggle" onclick="ciTogglePrompt()">Show full prompt</button>
+              <pre class="prompt-preview" id="ci-prompt-text" style="display:none; margin-top:0.5rem"></pre>
+            </div>
+          </section>
+
+          <section class="ci-section">
+            <h3>Journal Analysis <span class="meta" id="ci-analysis-meta"></span></h3>
+            <dl class="ci-kv-grid" id="ci-analysis-grid"></dl>
+            <div id="ci-child-analyses"></div>
+          </section>
+
+          <section class="ci-section">
+            <h3>Themes Updated By This Call <span class="meta" id="ci-themes-meta"></span></h3>
+            <div id="ci-themes-list"></div>
+          </section>
+
+          <section class="ci-section">
+            <h3>Memory Chunks (Embeddings) <span class="meta" id="ci-chunks-meta"></span></h3>
+            <div id="ci-chunks-list"></div>
+          </section>
+        </div>
+
+        <div class="ci-right">
+          <section class="ci-section ci-note-area">
+            <h3>Admin Notes <span class="meta" id="ci-note-meta"></span></h3>
+            <textarea class="ci-note-textarea" id="ci-note-textarea" placeholder="Add your notes about this call here…"></textarea>
+            <div class="ci-note-status" id="ci-note-status"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-calls -->
+
+  <div id="tab-openings" class="tab-panel" hidden>
+    <div class="memory-controls">
+      <input type="password" id="ol-secret-input" class="memory-input" placeholder="Admin dashboard secret" autocomplete="off">
+      <button class="memory-btn" onclick="olConnect()">Connect</button>
+      <button class="memory-btn" onclick="olLoad()" id="ol-refresh-btn" style="display:none">Refresh</button>
+    </div>
+    <div id="ol-error" class="empty-state" style="display:none"></div>
+    <div id="ol-body" style="display:none">
+      <section class="memory-section">
+        <h3>
+          <span>Prompt Openings <span class="meta" id="ol-prompt-meta"></span></span>
+          <button class="memory-btn ol-new-btn" onclick="olShowNewPromptForm()">+ New prompt</button>
+        </h3>
+        <p class="ol-help">The realtime model is instructed to speak these verbatim as the first utterance of a prompt call. Edits save automatically.</p>
+
+        <div id="ol-new-prompt-form" class="ol-new-form" style="display:none">
+          <div class="ol-new-grid">
+            <label>
+              <span class="ol-new-field-label">Prompt ID</span>
+              <input type="text" id="olp-id" class="memory-input" placeholder="snake_case_slug" autocomplete="off" spellcheck="false">
+            </label>
+            <label>
+              <span class="ol-new-field-label">Display order <em>(optional)</em></span>
+              <input type="number" id="olp-order" class="memory-input" placeholder="auto" autocomplete="off" min="0">
+            </label>
+          </div>
+          <label class="ol-new-row">
+            <span class="ol-new-field-label">Title</span>
+            <input type="text" id="olp-title" class="memory-input" placeholder="Short, topic-forward" autocomplete="off">
+          </label>
+          <label class="ol-new-row">
+            <span class="ol-new-field-label">Subtitle</span>
+            <input type="text" id="olp-subtitle" class="memory-input" placeholder="One-line hook shown on the card" autocomplete="off">
+          </label>
+          <label class="ol-new-row">
+            <span class="ol-new-field-label">Description</span>
+            <textarea id="olp-description" class="ol-textarea" rows="3" placeholder="Longer framing shown in the prompt detail view."></textarea>
+          </label>
+          <label class="ol-new-row">
+            <span class="ol-new-field-label">Opening line</span>
+            <textarea id="olp-opening" class="ol-textarea" rows="2" placeholder="Scripted first-utterance greeting from the AI."></textarea>
+          </label>
+          <div class="ol-new-row">
+            <span class="ol-new-field-label">Criteria <em>(id + user-facing text, 1+ required)</em></span>
+            <div id="olp-criteria-list"></div>
+            <button class="memory-btn olp-add-criterion-btn" onclick="olpAddCriterion()">+ Add criterion</button>
+          </div>
+          <div class="ol-new-actions">
+            <button class="memory-btn ol-new-primary" onclick="olCreatePrompt()">Create prompt</button>
+            <button class="memory-btn" onclick="olHideNewPromptForm()">Cancel</button>
+            <span id="olp-status" class="ol-status"></span>
+          </div>
+        </div>
+
+        <div id="ol-prompt-list"></div>
+      </section>
+
+      <section class="memory-section">
+        <h3>
+          <span>Generic Openings <span class="meta" id="ol-generic-meta"></span></span>
+          <button class="memory-btn ol-new-btn" onclick="olShowNewForm()">+ New generic</button>
+        </h3>
+        <p class="ol-help">Greetings for non-prompt Home-page calls. The iOS client picks one at random per call; use <code>{name}</code> in the opening line to substitute the user's first name (those rows are only used when we have a name on file). Time-of-day rows are only eligible when the user's <em>local</em> clock matches the bucket (morning 5:00am–11:59am, afternoon 12:00pm–5:29pm, evening 5:30pm–12:29am, late night 12:30am–4:59am); "Any time" rows are always eligible.</p>
+
+        <div id="ol-new-form" class="ol-new-form" style="display:none">
+          <div class="ol-new-grid">
+            <label>
+              <span class="ol-new-field-label">Context key</span>
+              <input type="text" id="ol-new-key" class="memory-input" placeholder="snake_case_slug" autocomplete="off" spellcheck="false">
+            </label>
+            <label>
+              <span class="ol-new-field-label">Label</span>
+              <input type="text" id="ol-new-label" class="memory-input" placeholder="Dashboard display name" autocomplete="off">
+            </label>
+          </div>
+          <div class="ol-new-grid">
+            <label>
+              <span class="ol-new-field-label">Time of day</span>
+              <select id="ol-new-tod" class="memory-input">
+                <option value="">Any time</option>
+                <option value="morning">Morning (5:00am–11:59am local)</option>
+                <option value="afternoon">Afternoon (12:00pm–5:29pm local)</option>
+                <option value="evening">Evening (5:30pm–12:29am local)</option>
+                <option value="late_night">Late night (12:30am–4:59am local)</option>
+              </select>
+            </label>
+            <label>
+              <span class="ol-new-field-label">Description <em>(optional)</em></span>
+              <input type="text" id="ol-new-desc" class="memory-input" placeholder="When / why this greeting is used" autocomplete="off">
+            </label>
+          </div>
+          <label class="ol-new-row">
+            <span class="ol-new-field-label">Opening line</span>
+            <textarea id="ol-new-text" class="ol-textarea" placeholder="Hey, how are you?" rows="2"></textarea>
+          </label>
+          <div class="ol-new-actions">
+            <button class="memory-btn ol-new-primary" onclick="olCreateGeneric()">Create</button>
+            <button class="memory-btn" onclick="olHideNewForm()">Cancel</button>
+            <span id="ol-new-status" class="ol-status"></span>
+          </div>
+        </div>
+
+        <div id="ol-generic-list"></div>
+      </section>
+    </div>
+  </div><!-- /tab-openings -->
+
+  <div id="tab-realtime-prompt" class="tab-panel" hidden>
+    <div class="memory-controls">
+      <input type="password" id="rp-secret-input" class="memory-input" placeholder="Admin dashboard secret" autocomplete="off">
+      <button class="memory-btn" onclick="rpConnect()">Connect</button>
+      <button class="memory-btn" onclick="rpLoad()" id="rp-refresh-btn" style="display:none">Refresh</button>
+    </div>
+    <div id="rp-error" class="empty-state" style="display:none"></div>
+    <div id="rp-body" style="display:none">
+      <section class="memory-section">
+        <h3>Production Realtime Prompt</h3>
+        <p class="ol-help">This edits the base prompt used by the production <code>get-realtime-config</code> edge function. Personalized memory layers are still appended dynamically for each user.</p>
+        <div class="rp-shell">
+          <textarea
+            id="rp-textarea"
+            class="ol-textarea rp-textarea"
+            rows="18"
+            placeholder="Production realtime prompt"
+            oninput="rpOnInput()"
+            onblur="rpOnBlur()"></textarea>
+          <div class="rp-meta-row">
+            <span class="ol-status" id="rp-status"></span>
+            <span class="rp-stats" id="rp-stats"></span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div><!-- /tab-realtime-prompt -->
+
+  <div id="tab-realtime-prompt-dev" class="tab-panel" hidden>
+    <div class="memory-controls">
+      <input type="password" id="rpd-secret-input" class="memory-input" placeholder="Admin dashboard secret" autocomplete="off">
+      <button class="memory-btn" onclick="rpdConnect()">Connect</button>
+      <button class="memory-btn" onclick="rpdLoad()" id="rpd-refresh-btn" style="display:none">Refresh</button>
+    </div>
+    <div id="rpd-error" class="empty-state" style="display:none"></div>
+    <div id="rpd-body" style="display:none">
+      <section class="memory-section">
+        <h3>Dev Realtime Prompt <span class="meta" style="background:#fff4d6;color:#7a5b00;padding:2px 8px;border-radius:6px;font-weight:600;letter-spacing:0.04em">DEV ONLY</span></h3>
+        <p class="ol-help">Only used by debug builds of the iOS app (i.e. when running from Xcode). TestFlight and App Store builds always use the production prompt. Leave this blank to make debug builds also use the production prompt.</p>
+        <div class="rp-shell">
+          <textarea
+            id="rpd-textarea"
+            class="ol-textarea rp-textarea"
+            rows="18"
+            placeholder="Dev realtime prompt (blank = use production)"
+            oninput="rpdOnInput()"
+            onblur="rpdOnBlur()"></textarea>
+          <div class="rp-meta-row">
+            <span class="ol-status" id="rpd-status"></span>
+            <span class="rp-stats" id="rpd-stats"></span>
+          </div>
+        </div>
+        <div style="margin-top:1rem;padding:0.85rem 1rem;background:#f5f0ff;border:1px solid #d6c9f3;border-radius:6px;display:flex;align-items:flex-start;gap:0.75rem">
+          <input type="checkbox" id="rpd-include-memory" onchange="rpdToggleIncludeMemory()" style="margin-top:0.2rem;width:18px;height:18px;cursor:pointer">
+          <label for="rpd-include-memory" style="cursor:pointer;flex:1">
+            <strong>Include memory layers</strong>
+            <span style="display:block;color:#5a4a7d;font-size:0.85rem;margin-top:0.2rem">When ON (default), the personalized memory layers (profile, themes, recent recaps) and the <code>recall_memory</code> tool are appended after the prompt above. When OFF, the model receives ONLY the prompt above — nothing else. Turn OFF when iterating on a strict scripted prompt (e.g. onboarding) so memory cues don't undermine the script. Only affects debug builds; production always assembles memory.</span>
+            <span class="ol-status" id="rpd-include-memory-status" style="display:block;margin-top:0.3rem"></span>
+          </label>
+        </div>
+      </section>
+    </div>
+  </div><!-- /tab-realtime-prompt-dev -->
+
+  <div id="tab-onboarding-intro-prompt" class="tab-panel" hidden>
+    <div class="memory-controls">
+      <input type="password" id="oip-secret-input" class="memory-input" placeholder="Admin dashboard secret" autocomplete="off">
+      <button class="memory-btn" onclick="oipConnect()">Connect</button>
+      <button class="memory-btn" onclick="oipLoad()" id="oip-refresh-btn" style="display:none">Refresh</button>
+    </div>
+    <div id="oip-error" class="empty-state" style="display:none"></div>
+    <div id="oip-body" style="display:none">
+      <section class="memory-section">
+        <h3>Onboarding Intro Prompt</h3>
+        <p class="ol-help">Scripted prompt used during the voice-onboarding intro call (Turns 1&ndash;7). Served to the realtime model with NO memory injection. The <code>complete_intro_call</code> tool is attached automatically &mdash; this textarea controls only the conversational instructions.</p>
+        <div class="rp-shell">
+          <textarea
+            id="oip-textarea"
+            class="ol-textarea rp-textarea"
+            rows="22"
+            placeholder="Onboarding intro prompt"
+            oninput="oipOnInput()"
+            onblur="oipOnBlur()"></textarea>
+          <div class="rp-meta-row">
+            <span class="ol-status" id="oip-status"></span>
+            <span class="rp-stats" id="oip-stats"></span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div><!-- /tab-onboarding-intro-prompt -->
+
+  <div id="tab-onboarding-first-entry-prompt" class="tab-panel" hidden>
+    <div class="memory-controls">
+      <input type="password" id="ofp-secret-input" class="memory-input" placeholder="Admin dashboard secret" autocomplete="off">
+      <button class="memory-btn" onclick="ofpConnect()">Connect</button>
+      <button class="memory-btn" onclick="ofpLoad()" id="ofp-refresh-btn" style="display:none">Refresh</button>
+    </div>
+    <div id="ofp-error" class="empty-state" style="display:none"></div>
+    <div id="ofp-body" style="display:none">
+      <section class="memory-section">
+        <h3>Onboarding First Entry Prompt</h3>
+        <p class="ol-help">Base prompt used during the user's first journal entry inside onboarding (3-minute call). Independent of the production base prompt. Memory layers are NOT injected. The user's selected journal prompt (title + opening line) is appended as a per-call suffix client-side.</p>
+        <div class="rp-shell">
+          <textarea
+            id="ofp-textarea"
+            class="ol-textarea rp-textarea"
+            rows="22"
+            placeholder="Onboarding first-entry prompt"
+            oninput="ofpOnInput()"
+            onblur="ofpOnBlur()"></textarea>
+          <div class="rp-meta-row">
+            <span class="ol-status" id="ofp-status"></span>
+            <span class="rp-stats" id="ofp-stats"></span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div><!-- /tab-onboarding-first-entry-prompt -->
+
+  <div id="tab-onboarding-session-prompts" class="tab-panel" hidden>
+    <div class="memory-controls">
+      <input type="password" id="ofsp-secret-input" class="memory-input" placeholder="Admin dashboard secret" autocomplete="off">
+      <button class="memory-btn" onclick="ofspConnect()">Connect</button>
+      <button class="memory-btn" onclick="ofspLoad()" id="ofsp-refresh-btn" style="display:none">Refresh</button>
+    </div>
+    <div id="ofsp-error" class="empty-state" style="display:none"></div>
+    <div id="ofsp-body" style="display:none">
+      <p class="ol-help">Per-prompt addendums appended to the realtime base prompt when a new user starts their first journaling session, depending on which prompt they pick. Each is a verbatim opening line plus steering. Use <code>[name]</code> for the user's first name (substituted in-app). Each prompt has a <strong>Production</strong> copy (shipped users) and a <strong>Dev</strong> copy (DEBUG builds, matching the dev realtime base prompt) — a blank Dev box falls back to Production. Blanking Production makes the app fall back to a generic opener. The "no prompt, just talk" option has no addendum. Edits save automatically.</p>
+      <div id="ofsp-list"></div>
+    </div>
+  </div><!-- /tab-onboarding-session-prompts -->
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://mmpnwjamjkidzhzimuxo.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1tcG53amFtamtpZHpoemltdXhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5MDMzNzYsImV4cCI6MjA3NjQ3OTM3Nn0.ydgcj944FNeO0fkntrp5wv_e7UQTqFZ7MooKAxXTExk';
+
+    // ---- Admin auth (Google login) -----------------------------------------
+    // Phase 2 security: authenticate the admin via Supabase Auth (Google)
+    // instead of a shared secret. Every existing REST/function call is
+    // authenticated by injecting the session JWT (fetch shim below); the legacy
+    // per-tab secret fields are auto-satisfied with a sentinel and hidden, so
+    // the rest of the dashboard code is unchanged. Access is limited to users
+    // in public.admin_users (enforced server-side by is_admin()).
+    const __ADMIN_SECRET_SENTINEL = 'via-admin-login';
+    const __SECRET_INPUT_IDS = [
+      'memory-secret-input', 'ci-secret-input', 'ol-secret-input', 'rp-secret-input',
+      'rpd-secret-input', 'oip-secret-input', 'ofp-secret-input', 'ofsp-secret-input',
+    ];
+    let __adminSession = null;
+
+    const __sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
+    });
+
+    // Attach the admin's JWT to every Supabase call the existing code makes.
+    const __origFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      init = init || {};
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (url.indexOf(SUPABASE_URL) === 0 && __adminSession && __adminSession.access_token) {
+        const h = new Headers(init.headers || {});
+        h.set('Authorization', 'Bearer ' + __adminSession.access_token);
+        init = Object.assign({}, init, { headers: h });
+      }
+      return __origFetch(input, init);
+    };
+
+    async function adminSignIn() {
+      const redirectTo = window.location.href.split('#')[0].split('?')[0];
+      await __sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
+    }
+    async function adminSignOut() {
+      await __sb.auth.signOut();
+      window.location.reload();
+    }
+    function __showGate(msg) {
+      const gate = document.getElementById('admin-login-gate');
+      if (gate) gate.style.display = 'flex';
+      const m = document.getElementById('admin-login-msg');
+      if (m) m.textContent = msg || '';
+      const out = document.getElementById('admin-signout-btn');
+      if (out) out.style.display = msg ? 'inline-block' : 'none';
+    }
+    function __applyLoggedIn() {
+      const gate = document.getElementById('admin-login-gate');
+      if (gate) gate.style.display = 'none';
+      try { localStorage.setItem(MEMORY_SECRET_KEY, __ADMIN_SECRET_SENTINEL); } catch (_e) {}
+      __SECRET_INPUT_IDS.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) { el.value = __ADMIN_SECRET_SENTINEL; if (el.parentElement) el.parentElement.style.display = 'none'; }
+      });
+    }
+    async function __refreshAuth() {
+      const { data: { session } } = await __sb.auth.getSession();
+      if (!session) { __adminSession = null; __showGate(''); return; }
+      __adminSession = session;
+      let isAdmin = false;
+      try { const { data } = await __sb.rpc('is_admin'); isAdmin = (data === true); } catch (_e) {}
+      if (isAdmin) { __applyLoggedIn(); }
+      else { __showGate('Signed in as ' + ((session.user && session.user.email) || '') + ' — not an admin.'); }
+    }
+    __sb.auth.onAuthStateChange(function (_evt, session) {
+      __adminSession = session || null;
+      __refreshAuth();
+    });
+    __refreshAuth();
+
+    let currentRange = 7;
+    const charts = {};
+
+    function formatDuration(totalSeconds) {
+      if (totalSeconds == null) return '--';
+      const mins = Math.floor(totalSeconds / 60);
+      const secs = Math.round(totalSeconds % 60);
+      return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+    }
+
+    function formatDateLabel(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    /* ---- Summary cards ---- */
+    async function fetchKPIs() {
+      const errorBanner = document.getElementById('error-banner');
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_kpi_dashboard`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+        const data = await res.json();
+
+        document.getElementById('total-users').textContent = data.total_users;
+        document.getElementById('new-users-today').textContent = data.new_users_today;
+        document.getElementById('calls-today').textContent = data.calls_today;
+        document.getElementById('unique-callers-today').textContent = data.unique_callers_today;
+        document.getElementById('avg-duration').textContent = formatDuration(data.avg_call_duration_seconds);
+        document.querySelectorAll('.card-value').forEach(el => el.classList.remove('loading'));
+      } catch (err) {
+        errorBanner.textContent = 'Failed to load KPIs: ' + err.message;
+        errorBanner.style.display = 'block';
+      }
+    }
+
+    /* ---- Charts ---- */
+    const CHART_DEFS = [
+      { id: 'chart-total-users',    key: 'total_users',         color: '#3b82f6', fill: true,  isDuration: false },
+      { id: 'chart-new-users',      key: 'new_users',           color: '#22c55e', fill: false, isDuration: false },
+      { id: 'chart-calls',          key: 'calls',               color: '#a855f7', fill: false, isDuration: false },
+      { id: 'chart-unique-callers', key: 'unique_callers',      color: '#f59e0b', fill: false, isDuration: false },
+      { id: 'chart-avg-duration',   key: 'avg_duration_seconds',color: '#ec4899', fill: false, isDuration: true },
+    ];
+
+    function makeChart(canvasId, labels, data, color, fill, isDuration) {
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      if (charts[canvasId]) charts[canvasId].destroy();
+
+      const tooltipCallbacks = {};
+      const yTickCallback = undefined;
+
+      if (isDuration) {
+        tooltipCallbacks.label = function(context) {
+          const v = context.parsed.y;
+          return v != null ? formatDuration(v) : 'No data';
+        };
+      }
+
+      charts[canvasId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data,
+            borderColor: color,
+            backgroundColor: fill ? color + '18' : 'transparent',
+            fill,
+            tension: 0.3,
+            pointRadius: labels.length > 60 ? 0 : 3,
+            pointHoverRadius: 5,
+            pointBackgroundColor: color,
+            borderWidth: 2,
+            spanGaps: true,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: tooltipCallbacks },
+          },
+          scales: {
+            x: {
+              ticks: { color: '#71717a', font: { size: 11 }, maxTicksLimit: 10 },
+              grid: { color: '#27272a' },
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                color: '#71717a',
+                font: { size: 11 },
+                precision: 0,
+                callback: isDuration
+                  ? function(v) { return formatDuration(v); }
+                  : undefined,
+              },
+              grid: { color: '#27272a' },
+            },
+          },
+          interaction: { intersect: false, mode: 'index' },
+        },
+      });
+    }
+
+    async function fetchTimeseries() {
+      const errorBanner = document.getElementById('error-banner');
+      try {
+        const body = currentRange != null ? JSON.stringify({ p_days: currentRange }) : '{}';
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_kpi_dashboard_timeseries`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body,
+        });
+        if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+        const ts = await res.json();
+        const labels = ts.dates.map(formatDateLabel);
+
+        for (const def of CHART_DEFS) {
+          makeChart(def.id, labels, ts[def.key], def.color, def.fill, def.isDuration);
+        }
+      } catch (err) {
+        errorBanner.textContent = 'Failed to load charts: ' + err.message;
+        errorBanner.style.display = 'block';
+      }
+    }
+
+    /* ---- Active callers table ---- */
+    async function fetchCallers() {
+      const tbody = document.getElementById('callers-tbody');
+      try {
+        const body = currentRange != null ? JSON.stringify({ p_days: currentRange }) : '{}';
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_kpi_active_callers`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body,
+        });
+        if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+        const rows = await res.json();
+
+        if (!rows || rows.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No callers in this period</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = rows.map(r =>
+          `<tr><td>${r.email}</td><td class="count">${r.call_count}</td><td class="count">${formatDuration(r.avg_duration_seconds)}</td></tr>`
+        ).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Failed to load: ${err.message}</td></tr>`;
+      }
+    }
+
+    function setRange(days, btn) {
+      currentRange = days;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      fetchTimeseries();
+      fetchCallers();
+    }
+
+    async function refreshAll() {
+      const btn = document.getElementById('refresh-btn');
+      btn.disabled = true;
+      btn.textContent = 'Loading...';
+      document.getElementById('error-banner').style.display = 'none';
+
+      await Promise.all([fetchKPIs(), fetchTimeseries(), fetchCallers()]);
+
+      document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+      btn.disabled = false;
+      btn.textContent = 'Refresh';
+    }
+
+    refreshAll();
+    setInterval(refreshAll, 60000);
+
+    /* ============================================
+       Tab switching
+       ============================================ */
+    function switchTab(tab, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-kpi').hidden = (tab !== 'kpi');
+      document.getElementById('tab-memory').hidden = (tab !== 'memory');
+      document.getElementById('tab-calls').hidden = (tab !== 'calls');
+      document.getElementById('tab-openings').hidden = (tab !== 'openings');
+      document.getElementById('tab-realtime-prompt').hidden = (tab !== 'realtime-prompt');
+      document.getElementById('tab-realtime-prompt-dev').hidden = (tab !== 'realtime-prompt-dev');
+      document.getElementById('tab-onboarding-intro-prompt').hidden = (tab !== 'onboarding-intro-prompt');
+      document.getElementById('tab-onboarding-first-entry-prompt').hidden = (tab !== 'onboarding-first-entry-prompt');
+      if (tab === 'memory') restoreMemorySecret();
+      if (tab === 'calls') ciRestoreSecret();
+      if (tab === 'openings') olRestoreSecret();
+      if (tab === 'realtime-prompt') rpRestoreSecret();
+      if (tab === 'realtime-prompt-dev') rpdRestoreSecret();
+      if (tab === 'onboarding-intro-prompt') oipRestoreSecret();
+      if (tab === 'onboarding-first-entry-prompt') ofpRestoreSecret();
+      if (tab === 'onboarding-session-prompts') ofspRestoreSecret();
+    }
+
+    /* ============================================
+       User Memory tab
+       ============================================ */
+    const MEMORY_SECRET_KEY = 'joice_admin_dashboard_secret';
+
+    function getMemorySecret() {
+      return document.getElementById('memory-secret-input').value.trim();
+    }
+
+    function restoreMemorySecret() {
+      const cached = localStorage.getItem(MEMORY_SECRET_KEY);
+      const input = document.getElementById('memory-secret-input');
+      if (cached && !input.value) input.value = cached;
+    }
+
+    function showMemoryError(msg) {
+      const el = document.getElementById('memory-error');
+      el.style.display = 'block';
+      el.textContent = msg;
+    }
+    function clearMemoryError() {
+      const el = document.getElementById('memory-error');
+      el.style.display = 'none';
+      el.textContent = '';
+    }
+
+    async function loadMemoryUsers() {
+      const secret = getMemorySecret();
+      if (!secret) { showMemoryError('Enter the admin dashboard secret.'); return; }
+      clearMemoryError();
+      localStorage.setItem(MEMORY_SECRET_KEY, secret);
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_get_user_list`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret }),
+        });
+        if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+        const rows = await res.json();
+
+        const sel = document.getElementById('memory-user-select');
+        sel.style.display = '';
+        sel.innerHTML = '<option value="">Pick a user…</option>' + rows.map(r => {
+          const lastCall = r.last_call_at ? new Date(r.last_call_at).toLocaleDateString() : 'never';
+          const flags = [
+            r.call_count > 0 ? `${r.call_count} calls` : '0 calls',
+            r.has_profile ? 'profile' : 'no profile',
+            `${r.theme_count} themes`,
+          ].join(' · ');
+          return `<option value="${r.user_id}">${escapeHtml(r.email ?? '(no email)')} — last ${lastCall} — ${flags}</option>`;
+        }).join('');
+      } catch (err) {
+        showMemoryError('Failed to load users: ' + err.message);
+      }
+    }
+
+    async function loadSelectedUserMemory() {
+      const sel = document.getElementById('memory-user-select');
+      const userId = sel.value;
+      const body = document.getElementById('memory-body');
+      if (!userId) { body.style.display = 'none'; return; }
+
+      const secret = getMemorySecret();
+      clearMemoryError();
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-user-memory`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'x-admin-secret': secret,
+          },
+          body: JSON.stringify({ user_id: userId }),
+        });
+        if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+        const data = await res.json();
+        renderMemory(data);
+        body.style.display = '';
+      } catch (err) {
+        showMemoryError('Failed to load memory: ' + err.message);
+      }
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function renderMemory(data) {
+      renderProfile(data.profile);
+      renderThemes(data.themes || []);
+      renderRecaps(data.recent_recaps || []);
+      renderCalls(data.recent_calls || []);
+      renderPrompt(data.prompt_preview || {});
+    }
+
+    function renderProfile(p) {
+      const grid = document.getElementById('profile-grid');
+      const meta = document.getElementById('profile-meta');
+      if (!p) {
+        meta.textContent = '(no profile row yet)';
+        grid.innerHTML = '<dt></dt><dd class="empty-dd">No profile has been extracted for this user yet. One will be created after their next call.</dd>';
+        return;
+      }
+      meta.textContent = '';
+      const fields = [];
+      const scalar = (label, v) => fields.push(`<dt>${label}</dt><dd>${v ? escapeHtml(v) : '<span class="empty-dd">—</span>'}</dd>`);
+      scalar('Display name', p.display_name);
+      scalar('Pronouns', p.pronouns);
+      scalar('Occupation', p.occupation_context);
+      scalar('Living context', p.living_context);
+
+      const people = (p.key_people || []).filter(kp => kp && kp.name && kp.relationship);
+      const peopleHtml = people.length === 0
+        ? '<span class="empty-dd">none</span>'
+        : '<ul>' + people.map(kp => {
+            const notes = kp.notes ? ` — ${escapeHtml(kp.notes)}` : '';
+            const last = kp.last_mentioned_at ? ` <span class="empty-dd">(last ${new Date(kp.last_mentioned_at).toLocaleDateString()})</span>` : '';
+            return `<li><b>${escapeHtml(kp.name)}</b> (${escapeHtml(kp.relationship)})${notes}${last}</li>`;
+          }).join('') + '</ul>';
+      fields.push(`<dt>Key people</dt><dd>${peopleHtml}</dd>`);
+
+      const values = (p.stated_values || []).filter(Boolean);
+      fields.push(`<dt>Stated values</dt><dd>${values.length ? values.map(escapeHtml).join(', ') : '<span class="empty-dd">none</span>'}</dd>`);
+
+      const goals = (p.stated_goals || []).filter(g => g && g.goal);
+      const goalsHtml = goals.length === 0 ? '<span class="empty-dd">none</span>'
+        : '<ul>' + goals.map(g => {
+            const status = g.status ? ` <span class="empty-dd">[${escapeHtml(g.status)}]</span>` : '';
+            return `<li>${escapeHtml(g.goal)}${status}</li>`;
+          }).join('') + '</ul>';
+      fields.push(`<dt>Stated goals</dt><dd>${goalsHtml}</dd>`);
+
+      const prefs = p.preferences || {};
+      const prefKeys = Object.keys(prefs);
+      const prefsHtml = prefKeys.length === 0 ? '<span class="empty-dd">none</span>'
+        : '<ul>' + prefKeys.map(k => `<li><b>${escapeHtml(k)}</b>: ${escapeHtml(JSON.stringify(prefs[k]))}</li>`).join('') + '</ul>';
+      fields.push(`<dt>Preferences</dt><dd>${prefsHtml}</dd>`);
+
+      grid.innerHTML = fields.join('');
+    }
+
+    function renderThemes(themes) {
+      const container = document.getElementById('themes-list');
+      document.getElementById('themes-meta').textContent = `${themes.length} active`;
+      if (themes.length === 0) {
+        container.innerHTML = '<div class="empty-state">No active themes for this user.</div>';
+        return;
+      }
+      container.innerHTML = themes.map(t => {
+        const bullets = (t.bullet_points || []).map(b => b && b.text).filter(Boolean);
+        const bulletsHtml = bullets.length > 0
+          ? bullets.map(b => '- ' + escapeHtml(b)).join('\n')
+          : '(no bullets)';
+        return `
+          <div class="theme-item">
+            <div class="theme-title">${escapeHtml(t.title)}</div>
+            <div class="theme-summary">${escapeHtml(t.summary)}</div>
+            <pre class="theme-bullets">${bulletsHtml}</pre>
+            <div class="theme-meta">${t.mention_count}x · last updated ${new Date(t.last_updated_at).toLocaleString()}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderRecaps(recaps) {
+      const container = document.getElementById('recaps-list');
+      document.getElementById('recaps-meta').textContent = `${recaps.length} shown`;
+      if (recaps.length === 0) {
+        container.innerHTML = '<div class="empty-state">No recent recaps.</div>';
+        return;
+      }
+      container.innerHTML = recaps.map(r => {
+        const when = r.call_date ? new Date(r.call_date).toLocaleString() : '(no date)';
+        const body = (r.recap && r.recap.trim()) || (r.summary && '— ' + r.summary) || '(empty)';
+        return `
+          <div class="recap-item">
+            <div class="recap-when">${escapeHtml(when)}</div>
+            <pre class="recap-body">${escapeHtml(body)}</pre>
+          </div>`;
+      }).join('');
+    }
+
+    function renderCalls(calls) {
+      const container = document.getElementById('calls-list');
+      document.getElementById('calls-meta').textContent = `${calls.length} shown`;
+      if (calls.length === 0) {
+        container.innerHTML = '<div class="empty-state">No calls for this user.</div>';
+        return;
+      }
+      container.innerHTML = calls.map(c => {
+        const when = c.call_date ? new Date(c.call_date).toLocaleString() : '(no date)';
+        const ja = Array.isArray(c.journal_analyses) ? c.journal_analyses[0] : c.journal_analyses;
+        const title = (ja && (ja.custom_title || ja.summary)) || '(untitled)';
+        const recap = ja && ja.recap ? ja.recap : '';
+        const dur = c.duration || '';
+        return `
+          <div class="call-item">
+            <div class="call-when">${escapeHtml(when)} — ${escapeHtml(title)}</div>
+            ${recap ? `<pre class="call-body">${escapeHtml(recap)}</pre>` : '<div class="call-meta">no recap stored</div>'}
+            <div class="call-meta">call_id: ${escapeHtml(c.call_id)} · duration: ${escapeHtml(dur)}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderPrompt(pp) {
+      const statsEl = document.getElementById('prompt-stats');
+      const promptEl = document.getElementById('prompt-preview');
+      const tokens = pp.est_tokens ?? 0;
+      const layers = pp.layer_chars || {};
+
+      const budgetCls = tokens <= 750 ? 'budget-ok' : tokens <= 2500 ? 'budget-ok' : tokens <= 5000 ? 'budget-warn' : 'budget-hot';
+
+      statsEl.innerHTML = `
+        <div class="stat"><b class="${budgetCls}">${tokens}</b> est tokens</div>
+        <div class="stat"><b>${pp.prompt_chars ?? 0}</b> chars</div>
+        <div class="stat">base <b>${layers.base ?? 0}</b></div>
+        <div class="stat">guidance <b>${layers.guidance ?? 0}</b></div>
+        <div class="stat">profile <b>${layers.profile ?? 0}</b></div>
+        <div class="stat">themes <b>${layers.themes ?? 0}</b></div>
+        <div class="stat">recaps <b>${layers.recent_recaps ?? 0}</b></div>
+      `;
+
+      promptEl.textContent = pp.prompt || '(no prompt)';
+    }
+
+    /* ============================================
+       Call Inspector tab
+       ============================================ */
+
+    let ciNoteTimer = null;
+    let ciCurrentCallId = null;
+
+    function ciGetSecret() {
+      return document.getElementById('ci-secret-input').value.trim();
+    }
+    function ciRestoreSecret() {
+      const cached = localStorage.getItem(MEMORY_SECRET_KEY);
+      const input = document.getElementById('ci-secret-input');
+      if (cached && !input.value) input.value = cached;
+    }
+    function ciShowError(msg) {
+      const el = document.getElementById('ci-error');
+      el.style.display = 'block';
+      el.textContent = msg;
+    }
+    function ciClearError() {
+      document.getElementById('ci-error').style.display = 'none';
+    }
+
+    async function ciConnect() {
+      const secret = ciGetSecret();
+      if (!secret) { ciShowError('Enter the admin dashboard secret.'); return; }
+      ciClearError();
+      localStorage.setItem(MEMORY_SECRET_KEY, secret);
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_get_user_list`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const rows = await res.json();
+        const sel = document.getElementById('ci-user-select');
+        sel.style.display = '';
+        sel.innerHTML = '<option value="">Pick a user…</option>' + rows.map(r => {
+          const lastCall = r.last_call_at ? new Date(r.last_call_at).toLocaleDateString() : 'never';
+          return `<option value="${r.user_id}">${escapeHtml(r.email ?? '(no email)')} — ${r.call_count} calls — last ${lastCall}</option>`;
+        }).join('');
+        document.getElementById('ci-call-select').style.display = 'none';
+        document.getElementById('ci-body').style.display = 'none';
+      } catch (err) {
+        ciShowError('Failed: ' + err.message);
+      }
+    }
+
+    async function ciLoadCalls() {
+      const userId = document.getElementById('ci-user-select').value;
+      const callSel = document.getElementById('ci-call-select');
+      document.getElementById('ci-body').style.display = 'none';
+      if (!userId) { callSel.style.display = 'none'; return; }
+      ciClearError();
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_get_user_calls`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: ciGetSecret(), p_user_id: userId }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const rows = await res.json();
+        callSel.style.display = '';
+        callSel.innerHTML = '<option value="">Pick a call…</option>' + rows.map(r => {
+          const d = new Date(r.call_date).toLocaleString();
+          const title = r.summary || '(untitled)';
+          const badges = [
+            r.message_count + ' msgs',
+            r.has_embeddings ? 'embeddings' : '',
+            r.has_note ? 'notes' : '',
+          ].filter(Boolean).join(' · ');
+          return `<option value="${r.call_id}">${d} — ${escapeHtml(title)} — ${badges}</option>`;
+        }).join('');
+      } catch (err) {
+        ciShowError('Failed: ' + err.message);
+      }
+    }
+
+    async function ciLoadCallDetails() {
+      const callId = document.getElementById('ci-call-select').value;
+      const body = document.getElementById('ci-body');
+      if (!callId) { body.style.display = 'none'; return; }
+      ciClearError();
+      ciCurrentCallId = callId;
+      try {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-call-details`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'x-admin-secret': ciGetSecret(),
+          },
+          body: JSON.stringify({ call_id: callId }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        ciRenderAll(data);
+        body.style.display = '';
+      } catch (err) {
+        ciShowError('Failed: ' + err.message);
+      }
+    }
+
+    function ciRenderAll(d) {
+      ciRenderCallMeta(d.call);
+      ciRenderTranscript(d.transcript || []);
+      ciRenderTelemetry(d.prompt_telemetry);
+      ciRenderAnalysis(d.analysis, d.child_analyses || {});
+      ciRenderThemes(d.themes || []);
+      ciRenderChunks(d.memory_chunks || []);
+      ciRenderNote(d.note || '', d.note_updated_at);
+    }
+
+    function ciRenderCallMeta(c) {
+      const el = document.getElementById('ci-call-meta');
+      el.innerHTML = `
+        <dt>Call ID</dt><dd style="font-family:monospace;font-size:0.8rem">${escapeHtml(c.call_id)}</dd>
+        <dt>User ID</dt><dd style="font-family:monospace;font-size:0.8rem">${escapeHtml(c.user_id)}</dd>
+        <dt>Date</dt><dd>${new Date(c.call_date).toLocaleString()}</dd>
+        <dt>Duration</dt><dd>${escapeHtml(c.duration || '—')}</dd>
+        <dt>Created</dt><dd>${new Date(c.created_at).toLocaleString()}</dd>
+      `;
+    }
+
+    function ciRenderTranscript(msgs) {
+      document.getElementById('ci-transcript-meta').textContent = `${msgs.length} messages`;
+      const el = document.getElementById('ci-transcript');
+      if (msgs.length === 0) {
+        el.innerHTML = '<div class="empty-state">No transcript messages.</div>';
+        return;
+      }
+      el.innerHTML = msgs.map(m => {
+        const cls = m.speaker === 'You' ? 'ci-speaker-you' : 'ci-speaker-ai';
+        const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : '';
+        return `<div class="ci-msg"><span class="ci-speaker ${cls}">${escapeHtml(m.speaker)}:</span>${escapeHtml(m.text)}<span class="ci-time">${time}</span></div>`;
+      }).join('');
+    }
+
+    function ciRenderTelemetry(t) {
+      const el = document.getElementById('ci-telemetry');
+      const meta = document.getElementById('ci-telemetry-meta');
+      const promptContainer = document.getElementById('ci-prompt-container');
+      const promptText = document.getElementById('ci-prompt-text');
+      const promptToggle = document.getElementById('ci-prompt-toggle');
+      if (!t) {
+        meta.textContent = '(none for this call)';
+        el.innerHTML = '<dt></dt><dd class="empty-dd">No prompt telemetry captured at call start. This call may predate the memory system.</dd>';
+        promptContainer.style.display = 'none';
+        return;
+      }
+      meta.textContent = '';
+      const lc = t.layer_chars || {};
+      el.innerHTML = `
+        <dt>Variant</dt><dd>${escapeHtml(t.variant)}</dd>
+        <dt>Total chars</dt><dd>${t.total_chars}</dd>
+        <dt>Est tokens</dt><dd><b>${t.est_tokens}</b></dd>
+        <dt>Base</dt><dd>${lc.base || 0} chars</dd>
+        <dt>Guidance</dt><dd>${lc.guidance || 0} chars</dd>
+        <dt>Profile</dt><dd>${lc.profile || 0} chars</dd>
+        <dt>Themes</dt><dd>${lc.themes || 0} chars</dd>
+        <dt>Recent recaps</dt><dd>${lc.recent_recaps || 0} chars</dd>
+        <dt>Captured at</dt><dd>${new Date(t.created_at).toLocaleString()}</dd>
+      `;
+      if (t.prompt_text) {
+        promptContainer.style.display = '';
+        promptText.textContent = t.prompt_text;
+        promptText.style.display = 'none';
+        promptToggle.textContent = 'Show full prompt';
+      } else {
+        promptContainer.style.display = 'none';
+      }
+    }
+
+    function ciTogglePrompt() {
+      const el = document.getElementById('ci-prompt-text');
+      const btn = document.getElementById('ci-prompt-toggle');
+      if (el.style.display === 'none') {
+        el.style.display = '';
+        btn.textContent = 'Hide prompt';
+      } else {
+        el.style.display = 'none';
+        btn.textContent = 'Show full prompt';
+      }
+    }
+
+    function ciRenderAnalysis(a, children) {
+      const el = document.getElementById('ci-analysis-grid');
+      const meta = document.getElementById('ci-analysis-meta');
+      const childEl = document.getElementById('ci-child-analyses');
+      if (!a) {
+        meta.textContent = '(none)';
+        el.innerHTML = '<dt></dt><dd class="empty-dd">No journal analysis for this call.</dd>';
+        childEl.innerHTML = '';
+        return;
+      }
+      meta.textContent = '';
+      el.innerHTML = `
+        <dt>Summary</dt><dd>${escapeHtml(a.summary || '—')}</dd>
+        <dt>Recap</dt><dd><pre style="white-space:pre-wrap;font-size:0.85rem;color:#d4d4d8;margin:0">${escapeHtml(a.recap || '(none)')}</pre></dd>
+        <dt>Mood</dt><dd>${escapeHtml(a.mood || '—')}</dd>
+        <dt>Custom title</dt><dd>${escapeHtml(a.custom_title || '—')}</dd>
+        <dt>Analyzed at</dt><dd>${a.analyzed_at ? new Date(a.analyzed_at).toLocaleString() : '—'}</dd>
+      `;
+
+      const childKeys = Object.keys(children);
+      if (childKeys.length === 0) {
+        childEl.innerHTML = '<div class="empty-state" style="margin-top:0.5rem">No structured analysis data (people, emotions, etc.) for this call.</div>';
+        return;
+      }
+      childEl.innerHTML = childKeys.map(table => {
+        const rows = children[table];
+        const label = table.replace('journal_', '').replace(/_/g, ' ');
+        return `
+          <div class="ci-analysis-block">
+            <h4>${escapeHtml(label)} (${rows.length})</h4>
+            <pre>${escapeHtml(JSON.stringify(rows, null, 2))}</pre>
+          </div>`;
+      }).join('');
+    }
+
+    function ciRenderThemes(themes) {
+      const el = document.getElementById('ci-themes-list');
+      document.getElementById('ci-themes-meta').textContent = `${themes.length} theme(s)`;
+      if (themes.length === 0) {
+        el.innerHTML = '<div class="empty-state">No themes reference this call.</div>';
+        return;
+      }
+      el.innerHTML = themes.map(t => {
+        const bullets = (t.bullet_points || []).map(b => b && b.text).filter(Boolean);
+        const bulletsHtml = bullets.length > 0 ? bullets.map(b => '- ' + escapeHtml(b)).join('\n') : '(no bullets)';
+        const archived = t.is_archived ? ' [ARCHIVED]' : '';
+        return `
+          <div class="ci-analysis-block">
+            <h4>${escapeHtml(t.title)}${archived} — ${t.mention_count}x</h4>
+            <div style="color:#a1a1aa;font-size:0.8rem;margin-bottom:0.25rem">${escapeHtml(t.summary)}</div>
+            <pre>${bulletsHtml}</pre>
+            <div style="color:#52525b;font-size:0.7rem;margin-top:0.25rem">last updated ${new Date(t.last_updated_at).toLocaleString()} · theme_id: ${t.theme_id}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function ciRenderChunks(chunks) {
+      const el = document.getElementById('ci-chunks-list');
+      document.getElementById('ci-chunks-meta').textContent = `${chunks.length} chunk(s)`;
+      if (chunks.length === 0) {
+        el.innerHTML = '<div class="empty-state">No embeddings for this call.</div>';
+        return;
+      }
+      el.innerHTML = chunks.map((c, i) => {
+        const badge = c.chunk_type === 'summary' ? 'SUMMARY' : `TRANSCRIPT #${c.chunk_index}`;
+        return `
+          <div class="ci-chunk">
+            <div class="ci-chunk-header">
+              <span><b>${badge}</b> · ${c.embedding_dims} dims · ${c.model}</span>
+              <span>${new Date(c.created_at).toLocaleString()}</span>
+            </div>
+            <div style="font-size:0.7rem;color:#71717a;margin-bottom:0.3rem">English (content that was embedded):</div>
+            <div class="ci-chunk-content">${escapeHtml(c.content)}</div>
+            <div style="font-size:0.7rem;color:#71717a;margin-top:0.4rem">Raw embedding vector:</div>
+            <div class="ci-chunk-vec" id="ci-vec-${i}">${escapeHtml(c.embedding_preview)}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function ciRenderNote(note, updatedAt) {
+      const textarea = document.getElementById('ci-note-textarea');
+      const status = document.getElementById('ci-note-status');
+      const meta = document.getElementById('ci-note-meta');
+      textarea.value = note;
+      meta.textContent = updatedAt ? `last saved ${new Date(updatedAt).toLocaleString()}` : '';
+      status.textContent = '';
+      status.className = 'ci-note-status';
+
+      // Remove old listener, add new one with debounced save
+      textarea.oninput = () => {
+        status.textContent = 'Unsaved changes…';
+        status.className = 'ci-note-status';
+        clearTimeout(ciNoteTimer);
+        ciNoteTimer = setTimeout(() => ciSaveNote(), 1500);
+      };
+    }
+
+    async function ciSaveNote() {
+      const callId = ciCurrentCallId;
+      if (!callId) return;
+      const note = document.getElementById('ci-note-textarea').value;
+      const status = document.getElementById('ci-note-status');
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_save_call_note`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: ciGetSecret(), p_call_id: callId, p_note: note }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        status.textContent = 'Saved ✓';
+        status.className = 'ci-note-status saved';
+        document.getElementById('ci-note-meta').textContent = 'last saved ' + new Date().toLocaleString();
+      } catch (err) {
+        status.textContent = 'Save failed: ' + err.message;
+        status.className = 'ci-note-status';
+      }
+    }
+
+    /* ============================================
+       Opening Lines tab
+       ============================================ */
+    // Shares the same admin secret key used by Memory + Call Inspector tabs.
+    const OL_SAVE_DEBOUNCE_MS = 1200;
+    const olSaveTimers = new Map();  // key → timeout id
+    let olRows = [];                  // last-fetched rows, cached for dirty-check
+
+    function olGetSecret() {
+      return document.getElementById('ol-secret-input').value.trim();
+    }
+
+    function olRestoreSecret() {
+      const saved = localStorage.getItem(MEMORY_SECRET_KEY);
+      if (saved) document.getElementById('ol-secret-input').value = saved;
+    }
+
+    async function olConnect() {
+      const secret = olGetSecret();
+      if (!secret) { olShowError('Enter the admin dashboard secret.'); return; }
+      localStorage.setItem(MEMORY_SECRET_KEY, secret);
+      await olLoad();
+    }
+
+    function olShowError(msg) {
+      const e = document.getElementById('ol-error');
+      e.textContent = msg;
+      e.style.display = 'block';
+      document.getElementById('ol-body').style.display = 'none';
+    }
+
+    function olClearError() {
+      document.getElementById('ol-error').style.display = 'none';
+    }
+
+    async function olLoad() {
+      olClearError();
+      const secret = olGetSecret();
+      if (!secret) { olShowError('Enter the admin dashboard secret.'); return; }
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_list_opening_lines`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          olShowError(res.status === 401 || /unauthorized/i.test(body)
+            ? 'Invalid admin secret.'
+            : `Failed to load: ${res.status} ${body}`);
+          return;
+        }
+        olRows = await res.json();
+        document.getElementById('ol-body').style.display = 'block';
+        document.getElementById('ol-refresh-btn').style.display = '';
+        olRender();
+      } catch (err) {
+        olShowError('Failed to load: ' + err.message);
+      }
+    }
+
+    function olRender() {
+      const prompts = olRows.filter(r => r.kind === 'prompt');
+      const generics = olRows.filter(r => r.kind === 'generic');
+
+      document.getElementById('ol-prompt-meta').textContent =
+        prompts.length ? `${prompts.length} prompt${prompts.length === 1 ? '' : 's'}` : '';
+      document.getElementById('ol-generic-meta').textContent =
+        generics.length ? `${generics.length} entr${generics.length === 1 ? 'y' : 'ies'}` : '';
+
+      document.getElementById('ol-prompt-list').innerHTML =
+        prompts.length
+          ? prompts.map(r => olItemHTML(r)).join('')
+          : '<div class="empty-state">No prompts found.</div>';
+
+      document.getElementById('ol-generic-list').innerHTML =
+        generics.length
+          ? generics.map(r => olItemHTML(r)).join('')
+          : '<div class="empty-state">No generic openings yet.</div>';
+    }
+
+    const OL_TOD_LABELS = {
+      morning: '🌅 morning',
+      afternoon: '☀️ afternoon',
+      evening: '🌆 evening',
+      late_night: '🌙 late night',
+    };
+
+    function olItemHTML(row) {
+      const safeText = olEscapeHTML(row.opening_line || '');
+      const safeLabel = olEscapeHTML(row.label || row.key || '');
+      const safeDesc = olEscapeHTML(row.description || '');
+      const safeKey = olEscapeHTML(row.key);
+      const safeKind = olEscapeHTML(row.kind);
+      const lastSaved = row.updated_at ? new Date(row.updated_at).toLocaleString() : '';
+      const todChip = (row.kind === 'generic' && row.time_of_day && OL_TOD_LABELS[row.time_of_day])
+        ? `<span class="ol-tod-chip">${OL_TOD_LABELS[row.time_of_day]}</span>`
+        : '';
+      const rowActions = row.kind === 'generic'
+        ? `<span class="ol-row-actions">
+            <button class="memory-btn ol-edit-btn" onclick="olToggleEditForm(this)">Edit</button>
+            <button class="memory-btn ol-delete-btn" onclick="olDeleteGeneric('${safeKey}', this)">Delete</button>
+          </span>`
+        : '';
+      const editForm = row.kind === 'generic' ? olEditFormHTML(row) : '';
+      return `
+        <div class="ol-item" data-kind="${safeKind}" data-key="${safeKey}">
+          <div class="ol-item-header">
+            <div class="ol-item-title">${safeLabel}${todChip}</div>
+            <div class="ol-item-key">${safeKind} · ${safeKey}</div>
+          </div>
+          ${safeDesc ? `<div class="ol-item-subtitle">${safeDesc}</div>` : ''}
+          <textarea class="ol-textarea"
+            oninput="olOnInput(this)"
+            onblur="olOnBlur(this)"
+            data-kind="${safeKind}"
+            data-key="${safeKey}"
+            data-original="${safeText}"
+            rows="2">${safeText}</textarea>
+          ${editForm}
+          <div class="ol-item-footer">
+            <span class="ol-status" data-key="${safeKey}">${lastSaved ? `last saved ${lastSaved}` : ''}</span>
+            ${rowActions || '<span></span>'}
+          </div>
+        </div>`;
+    }
+
+    /* ---------- Edit Generic row (label / description / time of day) ---------- */
+    /* Opening-line text is edited via the always-visible textarea above
+       (auto-saved through admin_upsert_opening_line); this form covers the
+       remaining fields via admin_update_generic_opening_line. */
+
+    function olEditFormHTML(row) {
+      const safeLabel = olEscapeHTML(row.label || '');
+      const safeDesc = olEscapeHTML(row.description || '');
+      const tod = row.time_of_day || '';
+      const opt = (value, text) =>
+        `<option value="${value}"${tod === value ? ' selected' : ''}>${text}</option>`;
+      return `
+        <div class="ol-edit-form" style="display:none">
+          <div class="ol-new-grid">
+            <label>
+              <span class="ol-new-field-label">Label</span>
+              <input type="text" class="memory-input ol-edit-label" value="${safeLabel}" autocomplete="off">
+            </label>
+            <label>
+              <span class="ol-new-field-label">Time of day</span>
+              <select class="memory-input ol-edit-tod">
+                ${opt('', 'Any time')}
+                ${opt('morning', 'Morning (5:00am–11:59am local)')}
+                ${opt('afternoon', 'Afternoon (12:00pm–5:29pm local)')}
+                ${opt('evening', 'Evening (5:30pm–12:29am local)')}
+                ${opt('late_night', 'Late night (12:30am–4:59am local)')}
+              </select>
+            </label>
+          </div>
+          <label class="ol-new-row">
+            <span class="ol-new-field-label">Description <em>(optional)</em></span>
+            <input type="text" class="memory-input ol-edit-desc" value="${safeDesc}" autocomplete="off">
+          </label>
+          <div class="ol-new-actions">
+            <button class="memory-btn ol-new-primary" onclick="olSaveGenericEdit(this)">Save</button>
+            <button class="memory-btn" onclick="olToggleEditForm(this, false)">Cancel</button>
+            <span class="ol-status ol-edit-status"></span>
+          </div>
+        </div>`;
+    }
+
+    function olToggleEditForm(btn, show) {
+      const form = btn.closest('.ol-item').querySelector('.ol-edit-form');
+      const visible = form.style.display !== 'none';
+      form.style.display = (show === false || visible) ? 'none' : 'block';
+    }
+
+    async function olSaveGenericEdit(btn) {
+      const item = btn.closest('.ol-item');
+      const key = item.dataset.key;
+      const label = item.querySelector('.ol-edit-label').value.trim();
+      const desc = item.querySelector('.ol-edit-desc').value.trim();
+      const tod = item.querySelector('.ol-edit-tod').value;
+      const status = item.querySelector('.ol-edit-status');
+      const secret = olGetSecret();
+
+      if (!secret) { olNewError(status, 'Missing admin secret'); return; }
+      if (!label) { olNewError(status, 'Label is required'); return; }
+
+      status.textContent = 'Saving…';
+      status.className = 'ol-status ol-edit-status saving';
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_update_generic_opening_line`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            p_secret: secret,
+            p_context_key: key,
+            p_label: label,
+            p_description: desc || null,
+            p_time_of_day: tod || null,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          olNewError(status, res.status === 401 || /unauthorized/i.test(body)
+            ? 'Unauthorized — check the admin secret.'
+            : 'Failed: ' + body);
+          return;
+        }
+        await olLoad();
+      } catch (err) {
+        olNewError(status, 'Failed: ' + err.message);
+      }
+    }
+
+    async function olDeleteGeneric(key, btn) {
+      const secret = olGetSecret();
+      if (!secret) { olShowError('Enter the admin dashboard secret.'); return; }
+      if (!confirm(`Delete generic opening "${key}"? Clients pick from this catalog at call start; this takes effect immediately.`)) return;
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_delete_generic_opening_line`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret, p_context_key: key }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          olShowError(res.status === 401 || /unauthorized/i.test(body)
+            ? 'Invalid admin secret.'
+            : `Delete failed: ${body}`);
+          btn.disabled = false;
+          btn.textContent = 'Delete';
+          return;
+        }
+        await olLoad();
+      } catch (err) {
+        olShowError('Delete failed: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+      }
+    }
+
+    function olEscapeHTML(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function olOnInput(textarea) {
+      const key = textarea.dataset.key;
+      const status = textarea.closest('.ol-item').querySelector('.ol-status');
+      const clean = textarea.value.trim();
+      if (clean === textarea.dataset.original.trim()) {
+        // Back to saved state — clear pending save.
+        const pending = olSaveTimers.get(key);
+        if (pending) { clearTimeout(pending); olSaveTimers.delete(key); }
+        status.textContent = 'No changes';
+        status.className = 'ol-status';
+        return;
+      }
+      status.textContent = 'Unsaved…';
+      status.className = 'ol-status';
+      const existing = olSaveTimers.get(key);
+      if (existing) clearTimeout(existing);
+      olSaveTimers.set(key, setTimeout(() => olSave(textarea), OL_SAVE_DEBOUNCE_MS));
+    }
+
+    function olOnBlur(textarea) {
+      const key = textarea.dataset.key;
+      const clean = textarea.value.trim();
+      if (clean === textarea.dataset.original.trim()) return;
+      // Blur = fire immediately; cancel any pending debounce.
+      const existing = olSaveTimers.get(key);
+      if (existing) clearTimeout(existing);
+      olSaveTimers.delete(key);
+      olSave(textarea);
+    }
+
+    function olShowNewForm() {
+      const form = document.getElementById('ol-new-form');
+      ['ol-new-key','ol-new-label','ol-new-tod','ol-new-desc','ol-new-text'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      const status = document.getElementById('ol-new-status');
+      status.textContent = '';
+      status.className = 'ol-status';
+      form.style.display = 'block';
+      document.getElementById('ol-new-key').focus();
+    }
+
+    function olHideNewForm() {
+      document.getElementById('ol-new-form').style.display = 'none';
+    }
+
+    async function olCreateGeneric() {
+      const secret = olGetSecret();
+      const key   = document.getElementById('ol-new-key').value.trim();
+      const label = document.getElementById('ol-new-label').value.trim();
+      const tod   = document.getElementById('ol-new-tod').value;
+      const desc  = document.getElementById('ol-new-desc').value.trim();
+      const text  = document.getElementById('ol-new-text').value.trim();
+      const status = document.getElementById('ol-new-status');
+
+      if (!secret) { olNewError(status, 'Missing admin secret'); return; }
+      if (!key) { olNewError(status, 'Context key is required'); return; }
+      if (!/^[a-z0-9_]+$/.test(key)) { olNewError(status, 'Context key: lowercase, numbers, and underscores only'); return; }
+      if (!label) { olNewError(status, 'Label is required'); return; }
+      if (!text) { olNewError(status, 'Opening line is required'); return; }
+
+      status.textContent = 'Creating…';
+      status.className = 'ol-status saving';
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_create_generic_opening_line`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            p_secret: secret,
+            p_context_key: key,
+            p_label: label,
+            p_description: desc || null,
+            p_opening_line: text,
+            p_time_of_day: tod || null,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          if (/already exists/i.test(body)) {
+            olNewError(status, 'That context key is already in use — pick a different one.');
+          } else if (res.status === 401 || /unauthorized/i.test(body)) {
+            olNewError(status, 'Unauthorized — check the admin secret.');
+          } else {
+            olNewError(status, 'Failed: ' + body);
+          }
+          return;
+        }
+        status.textContent = 'Created ✓';
+        status.className = 'ol-status saved';
+        olHideNewForm();
+        await olLoad();
+      } catch (err) {
+        olNewError(status, 'Failed: ' + err.message);
+      }
+    }
+
+    function olNewError(status, msg) {
+      status.textContent = msg;
+      status.className = 'ol-status error';
+    }
+
+    /* ---------- New Journal Prompt form ---------- */
+
+    function olShowNewPromptForm() {
+      const form = document.getElementById('ol-new-prompt-form');
+      ['olp-id','olp-order','olp-title','olp-subtitle','olp-description','olp-opening'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('olp-criteria-list').innerHTML = '';
+      // Start with 3 empty criterion rows — most existing prompts have 3–4.
+      for (let i = 0; i < 3; i++) olpAddCriterion();
+      const status = document.getElementById('olp-status');
+      status.textContent = '';
+      status.className = 'ol-status';
+      form.style.display = 'block';
+      document.getElementById('olp-id').focus();
+    }
+
+    function olHideNewPromptForm() {
+      document.getElementById('ol-new-prompt-form').style.display = 'none';
+    }
+
+    function olpAddCriterion() {
+      const list = document.getElementById('olp-criteria-list');
+      const row = document.createElement('div');
+      row.className = 'olp-criterion-row';
+      row.innerHTML = `
+        <input type="text" class="memory-input olp-criterion-id" placeholder="criterion_id" autocomplete="off" spellcheck="false">
+        <input type="text" class="memory-input olp-criterion-text" placeholder="User-facing criterion text" autocomplete="off">
+        <button class="memory-btn olp-criterion-remove" onclick="olpRemoveCriterion(this)" title="Remove">×</button>
+      `;
+      list.appendChild(row);
+    }
+
+    function olpRemoveCriterion(btn) {
+      const row = btn.closest('.olp-criterion-row');
+      if (row) row.remove();
+    }
+
+    async function olCreatePrompt() {
+      const secret = olGetSecret();
+      const status = document.getElementById('olp-status');
+
+      const promptId    = document.getElementById('olp-id').value.trim();
+      const title       = document.getElementById('olp-title').value.trim();
+      const subtitle    = document.getElementById('olp-subtitle').value.trim();
+      const description = document.getElementById('olp-description').value.trim();
+      const openingLine = document.getElementById('olp-opening').value.trim();
+      const orderRaw    = document.getElementById('olp-order').value.trim();
+      const order       = orderRaw === '' ? null : parseInt(orderRaw, 10);
+
+      // Collect criteria rows; skip fully-empty ones, error on half-filled.
+      const rows = document.querySelectorAll('#olp-criteria-list .olp-criterion-row');
+      const criteria = [];
+      const seenIds = new Set();
+      for (const row of rows) {
+        const id = row.querySelector('.olp-criterion-id').value.trim();
+        const text = row.querySelector('.olp-criterion-text').value.trim();
+        if (!id && !text) continue;
+        if (!id || !text) {
+          olNewError(status, `Criterion is missing ${!id ? 'id' : 'text'}`);
+          return;
+        }
+        if (!/^[a-z0-9_]+$/.test(id)) {
+          olNewError(status, `Criterion id "${id}" must be lowercase alphanumeric + underscores`);
+          return;
+        }
+        if (seenIds.has(id)) {
+          olNewError(status, `Duplicate criterion id: ${id}`);
+          return;
+        }
+        seenIds.add(id);
+        criteria.push({ id, text });
+      }
+
+      if (!secret)                                             { olNewError(status, 'Missing admin secret'); return; }
+      if (!promptId)                                           { olNewError(status, 'Prompt ID is required'); return; }
+      if (!/^[a-z0-9_]+$/.test(promptId))                      { olNewError(status, 'Prompt ID: lowercase, numbers, underscores only'); return; }
+      if (!title)                                              { olNewError(status, 'Title is required'); return; }
+      if (!subtitle)                                           { olNewError(status, 'Subtitle is required'); return; }
+      if (!description)                                        { olNewError(status, 'Description is required'); return; }
+      if (!openingLine)                                        { olNewError(status, 'Opening line is required'); return; }
+      if (criteria.length === 0)                               { olNewError(status, 'At least one criterion is required'); return; }
+      if (orderRaw !== '' && (!Number.isFinite(order) || order < 0)) { olNewError(status, 'Display order must be a non-negative integer'); return; }
+
+      status.textContent = 'Creating…';
+      status.className = 'ol-status saving';
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_create_journal_prompt`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            p_secret: secret,
+            p_prompt_id: promptId,
+            p_title: title,
+            p_subtitle: subtitle,
+            p_description: description,
+            p_criteria: criteria,
+            p_opening_line: openingLine,
+            p_display_order: order,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          if (/already exists/i.test(body)) {
+            olNewError(status, 'That prompt ID is already in use — pick a different one.');
+          } else if (res.status === 401 || /unauthorized/i.test(body)) {
+            olNewError(status, 'Unauthorized — check the admin secret.');
+          } else {
+            olNewError(status, 'Failed: ' + body);
+          }
+          return;
+        }
+        status.textContent = 'Created ✓';
+        status.className = 'ol-status saved';
+        olHideNewPromptForm();
+        await olLoad();
+      } catch (err) {
+        olNewError(status, 'Failed: ' + err.message);
+      }
+    }
+
+    async function olSave(textarea) {
+      const kind = textarea.dataset.kind;
+      const key = textarea.dataset.key;
+      const value = textarea.value.trim();
+      const status = textarea.closest('.ol-item').querySelector('.ol-status');
+      const secret = olGetSecret();
+
+      if (!value) {
+        status.textContent = 'Cannot be empty';
+        status.className = 'ol-status error';
+        return;
+      }
+      if (!secret) {
+        status.textContent = 'Missing admin secret';
+        status.className = 'ol-status error';
+        return;
+      }
+
+      status.textContent = 'Saving…';
+      status.className = 'ol-status saving';
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_upsert_opening_line`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            p_secret: secret,
+            p_kind: kind,
+            p_key: key,
+            p_opening_line: value,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(res.status === 401 || /unauthorized/i.test(body)
+            ? 'Unauthorized'
+            : body);
+        }
+        textarea.dataset.original = value;
+        status.textContent = 'Saved · ' + new Date().toLocaleString();
+        status.className = 'ol-status saved';
+      } catch (err) {
+        status.textContent = 'Save failed: ' + err.message;
+        status.className = 'ol-status error';
+      }
+    }
+
+    /* ============================================
+       Realtime Prompt tab
+       ============================================ */
+    const RP_SAVE_DEBOUNCE_MS = 1200;
+    let rpSaveTimer = null;
+
+    function rpGetSecret() {
+      return document.getElementById('rp-secret-input').value.trim();
+    }
+
+    function rpRestoreSecret() {
+      const saved = localStorage.getItem(MEMORY_SECRET_KEY);
+      if (saved) document.getElementById('rp-secret-input').value = saved;
+    }
+
+    function rpShowError(msg) {
+      const e = document.getElementById('rp-error');
+      e.textContent = msg;
+      e.style.display = 'block';
+      document.getElementById('rp-body').style.display = 'none';
+    }
+
+    function rpClearError() {
+      const e = document.getElementById('rp-error');
+      e.style.display = 'none';
+      e.textContent = '';
+    }
+
+    async function rpConnect() {
+      const secret = rpGetSecret();
+      if (!secret) { rpShowError('Enter the admin dashboard secret.'); return; }
+      localStorage.setItem(MEMORY_SECRET_KEY, secret);
+      await rpLoad();
+    }
+
+    function rpUpdateStats(text) {
+      const chars = text.length;
+      const lines = text.length === 0 ? 0 : text.split('\n').length;
+      document.getElementById('rp-stats').textContent = `${chars} chars · ${lines} line${lines === 1 ? '' : 's'}`;
+    }
+
+    function rpRender(data) {
+      const textarea = document.getElementById('rp-textarea');
+      const status = document.getElementById('rp-status');
+      const promptText = data.prompt_text || '';
+      textarea.value = promptText;
+      textarea.dataset.original = promptText;
+      rpUpdateStats(promptText);
+      status.textContent = data.updated_at
+        ? `last saved ${new Date(data.updated_at).toLocaleString()}`
+        : 'Loaded';
+      status.className = 'ol-status';
+      document.getElementById('rp-body').style.display = 'block';
+      document.getElementById('rp-refresh-btn').style.display = '';
+    }
+
+    async function rpLoad() {
+      rpClearError();
+      const secret = rpGetSecret();
+      if (!secret) { rpShowError('Enter the admin dashboard secret.'); return; }
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_get_realtime_prompt`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          rpShowError(res.status === 401 || /unauthorized/i.test(body)
+            ? 'Invalid admin secret.'
+            : `Failed to load: ${res.status} ${body}`);
+          return;
+        }
+        const data = await res.json();
+        rpRender(data);
+      } catch (err) {
+        rpShowError('Failed to load: ' + err.message);
+      }
+    }
+
+    function rpOnInput() {
+      const textarea = document.getElementById('rp-textarea');
+      const status = document.getElementById('rp-status');
+      rpUpdateStats(textarea.value);
+
+      if (textarea.value === (textarea.dataset.original || '')) {
+        if (rpSaveTimer) {
+          clearTimeout(rpSaveTimer);
+          rpSaveTimer = null;
+        }
+        status.textContent = 'No changes';
+        status.className = 'ol-status';
+        return;
+      }
+
+      status.textContent = 'Unsaved…';
+      status.className = 'ol-status';
+      if (rpSaveTimer) clearTimeout(rpSaveTimer);
+      rpSaveTimer = setTimeout(() => rpSave(), RP_SAVE_DEBOUNCE_MS);
+    }
+
+    function rpOnBlur() {
+      const textarea = document.getElementById('rp-textarea');
+      if (textarea.value === (textarea.dataset.original || '')) return;
+      if (rpSaveTimer) {
+        clearTimeout(rpSaveTimer);
+        rpSaveTimer = null;
+      }
+      rpSave();
+    }
+
+    async function rpSave() {
+      rpSaveTimer = null;
+      const textarea = document.getElementById('rp-textarea');
+      const status = document.getElementById('rp-status');
+      const secret = rpGetSecret();
+      const value = textarea.value;
+
+      if (!value.trim()) {
+        status.textContent = 'Prompt cannot be empty';
+        status.className = 'ol-status error';
+        return;
+      }
+      if (!secret) {
+        status.textContent = 'Missing admin secret';
+        status.className = 'ol-status error';
+        return;
+      }
+
+      status.textContent = 'Saving…';
+      status.className = 'ol-status saving';
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_update_realtime_prompt`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            p_secret: secret,
+            p_prompt_text: value,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(res.status === 401 || /unauthorized/i.test(body)
+            ? 'Unauthorized'
+            : body);
+        }
+
+        const data = await res.json();
+        textarea.dataset.original = value;
+        status.textContent = data.updated_at
+          ? 'Saved · ' + new Date(data.updated_at).toLocaleString()
+          : 'Saved';
+        status.className = 'ol-status saved';
+      } catch (err) {
+        status.textContent = 'Save failed: ' + err.message;
+        status.className = 'ol-status error';
+      }
+    }
+
+    /* ============================================
+       Dev Realtime Prompt tab
+       Mirrors the production Realtime Prompt tab but talks to the
+       admin_*_realtime_prompt_dev RPCs and allows empty values (empty
+       dev prompt = debug builds use prod prompt). Shares the dashboard
+       secret with the other admin tabs via MEMORY_SECRET_KEY.
+       ============================================ */
+    const RPD_SAVE_DEBOUNCE_MS = 1200;
+    let rpdSaveTimer = null;
+
+    function rpdGetSecret() {
+      return document.getElementById('rpd-secret-input').value.trim();
+    }
+
+    function rpdRestoreSecret() {
+      const saved = localStorage.getItem(MEMORY_SECRET_KEY);
+      if (saved) document.getElementById('rpd-secret-input').value = saved;
+    }
+
+    function rpdShowError(msg) {
+      const e = document.getElementById('rpd-error');
+      e.textContent = msg;
+      e.style.display = 'block';
+      document.getElementById('rpd-body').style.display = 'none';
+    }
+
+    function rpdClearError() {
+      const e = document.getElementById('rpd-error');
+      e.style.display = 'none';
+      e.textContent = '';
+    }
+
+    async function rpdConnect() {
+      const secret = rpdGetSecret();
+      if (!secret) { rpdShowError('Enter the admin dashboard secret.'); return; }
+      localStorage.setItem(MEMORY_SECRET_KEY, secret);
+      await rpdLoad();
+    }
+
+    function rpdUpdateStats(text) {
+      const chars = text.length;
+      const lines = text.length === 0 ? 0 : text.split('\n').length;
+      const fallbackNote = chars === 0 ? ' · falling back to production' : '';
+      document.getElementById('rpd-stats').textContent =
+        `${chars} chars · ${lines} line${lines === 1 ? '' : 's'}${fallbackNote}`;
+    }
+
+    function rpdRender(data) {
+      const textarea = document.getElementById('rpd-textarea');
+      const status = document.getElementById('rpd-status');
+      const promptText = data.prompt_text || '';
+      textarea.value = promptText;
+      textarea.dataset.original = promptText;
+      rpdUpdateStats(promptText);
+      status.textContent = data.updated_at
+        ? `last saved ${new Date(data.updated_at).toLocaleString()}`
+        : 'Loaded';
+      status.className = 'ol-status';
+      // Memory toggle. Defaults to true if missing (matches the DB default).
+      const includeMemory = typeof data.include_memory === 'boolean' ? data.include_memory : true;
+      document.getElementById('rpd-include-memory').checked = includeMemory;
+      document.getElementById('rpd-include-memory-status').textContent = '';
+      document.getElementById('rpd-body').style.display = 'block';
+      document.getElementById('rpd-refresh-btn').style.display = '';
+    }
+
+    async function rpdToggleIncludeMemory() {
+      const checkbox = document.getElementById('rpd-include-memory');
+      const status = document.getElementById('rpd-include-memory-status');
+      const secret = rpdGetSecret();
+      if (!secret) {
+        status.textContent = 'Missing admin secret';
+        status.className = 'ol-status error';
+        // Re-load to restore the actual server-side value.
+        checkbox.checked = !checkbox.checked;
+        return;
+      }
+      const desired = checkbox.checked;
+      status.textContent = 'Saving…';
+      status.className = 'ol-status saving';
+
+      // Pass the current textarea contents along so the existing
+      // update RPC doesn't blank out the prompt on us. The RPC
+      // normalizes whitespace-only to NULL, which is the intended
+      // "fall back to prod" behavior.
+      const textarea = document.getElementById('rpd-textarea');
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_update_realtime_prompt_dev`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            p_secret: secret,
+            p_prompt_text: textarea.value,
+            p_include_memory: desired,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(res.status === 401 || /unauthorized/i.test(body)
+            ? 'Unauthorized'
+            : body);
+        }
+        const data = await res.json();
+        status.textContent = data.updated_at
+          ? `Memory ${desired ? 'ON' : 'OFF'} · saved ${new Date(data.updated_at).toLocaleString()}`
+          : `Memory ${desired ? 'ON' : 'OFF'} · saved`;
+        status.className = 'ol-status saved';
+      } catch (err) {
+        // Roll back checkbox state on failure.
+        checkbox.checked = !desired;
+        status.textContent = 'Save failed: ' + err.message;
+        status.className = 'ol-status error';
+      }
+    }
+
+    async function rpdLoad() {
+      rpdClearError();
+      const secret = rpdGetSecret();
+      if (!secret) { rpdShowError('Enter the admin dashboard secret.'); return; }
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_get_realtime_prompt_dev`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          rpdShowError(res.status === 401 || /unauthorized/i.test(body)
+            ? 'Invalid admin secret.'
+            : `Failed to load: ${res.status} ${body}`);
+          return;
+        }
+        const data = await res.json();
+        rpdRender(data);
+      } catch (err) {
+        rpdShowError('Failed to load: ' + err.message);
+      }
+    }
+
+    function rpdOnInput() {
+      const textarea = document.getElementById('rpd-textarea');
+      const status = document.getElementById('rpd-status');
+      rpdUpdateStats(textarea.value);
+
+      if (textarea.value === (textarea.dataset.original || '')) {
+        if (rpdSaveTimer) {
+          clearTimeout(rpdSaveTimer);
+          rpdSaveTimer = null;
+        }
+        status.textContent = 'No changes';
+        status.className = 'ol-status';
+        return;
+      }
+
+      status.textContent = 'Unsaved…';
+      status.className = 'ol-status';
+      if (rpdSaveTimer) clearTimeout(rpdSaveTimer);
+      rpdSaveTimer = setTimeout(() => rpdSave(), RPD_SAVE_DEBOUNCE_MS);
+    }
+
+    function rpdOnBlur() {
+      const textarea = document.getElementById('rpd-textarea');
+      if (textarea.value === (textarea.dataset.original || '')) return;
+      if (rpdSaveTimer) {
+        clearTimeout(rpdSaveTimer);
+        rpdSaveTimer = null;
+      }
+      rpdSave();
+    }
+
+    async function rpdSave() {
+      rpdSaveTimer = null;
+      const textarea = document.getElementById('rpd-textarea');
+      const status = document.getElementById('rpd-status');
+      const secret = rpdGetSecret();
+      const value = textarea.value;
+
+      // Unlike the prod prompt, an empty dev prompt is intentional — it
+      // means "debug builds should fall back to the production prompt."
+      // So we don't reject the empty case here.
+      if (!secret) {
+        status.textContent = 'Missing admin secret';
+        status.className = 'ol-status error';
+        return;
+      }
+
+      status.textContent = 'Saving…';
+      status.className = 'ol-status saving';
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_update_realtime_prompt_dev`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            p_secret: secret,
+            p_prompt_text: value,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(res.status === 401 || /unauthorized/i.test(body)
+            ? 'Unauthorized'
+            : body);
+        }
+
+        const data = await res.json();
+        textarea.dataset.original = value;
+        status.textContent = data.updated_at
+          ? 'Saved · ' + new Date(data.updated_at).toLocaleString()
+          : 'Saved';
+        status.className = 'ol-status saved';
+      } catch (err) {
+        status.textContent = 'Save failed: ' + err.message;
+        status.className = 'ol-status error';
+      }
+    }
+
+    /* ============================================
+       Onboarding Intro Prompt tab
+       Mirrors the production Realtime Prompt tab but talks to the
+       admin_*_onboarding_intro_prompt RPCs. Empty values are rejected
+       server-side (no fallback — onboarding is a scripted call).
+       ============================================ */
+    const OIP_SAVE_DEBOUNCE_MS = 1200;
+    let oipSaveTimer = null;
+
+    function oipGetSecret() {
+      return document.getElementById('oip-secret-input').value.trim();
+    }
+
+    function oipRestoreSecret() {
+      const saved = localStorage.getItem(MEMORY_SECRET_KEY);
+      if (saved) document.getElementById('oip-secret-input').value = saved;
+    }
+
+    function oipShowError(msg) {
+      const e = document.getElementById('oip-error');
+      e.textContent = msg;
+      e.style.display = 'block';
+      document.getElementById('oip-body').style.display = 'none';
+    }
+
+    function oipClearError() {
+      const e = document.getElementById('oip-error');
+      e.style.display = 'none';
+      e.textContent = '';
+    }
+
+    async function oipConnect() {
+      const secret = oipGetSecret();
+      if (!secret) { oipShowError('Enter the admin dashboard secret.'); return; }
+      localStorage.setItem(MEMORY_SECRET_KEY, secret);
+      await oipLoad();
+    }
+
+    function oipUpdateStats(text) {
+      const chars = text.length;
+      const lines = text.length === 0 ? 0 : text.split('\n').length;
+      document.getElementById('oip-stats').textContent =
+        `${chars} chars · ${lines} line${lines === 1 ? '' : 's'}`;
+    }
+
+    function oipRender(data) {
+      const textarea = document.getElementById('oip-textarea');
+      const status = document.getElementById('oip-status');
+      const promptText = data.prompt_text || '';
+      textarea.value = promptText;
+      textarea.dataset.original = promptText;
+      oipUpdateStats(promptText);
+      status.textContent = data.updated_at
+        ? `last saved ${new Date(data.updated_at).toLocaleString()}`
+        : 'Loaded';
+      status.className = 'ol-status';
+      document.getElementById('oip-body').style.display = 'block';
+      document.getElementById('oip-refresh-btn').style.display = '';
+    }
+
+    async function oipLoad() {
+      oipClearError();
+      const secret = oipGetSecret();
+      if (!secret) { oipShowError('Enter the admin dashboard secret.'); return; }
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_get_onboarding_intro_prompt`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          oipShowError(res.status === 401 || /unauthorized/i.test(body)
+            ? 'Invalid admin secret.'
+            : `Failed to load: ${res.status} ${body}`);
+          return;
+        }
+        oipRender(await res.json());
+      } catch (err) {
+        oipShowError('Failed to load: ' + err.message);
+      }
+    }
+
+    function oipOnInput() {
+      const textarea = document.getElementById('oip-textarea');
+      const status = document.getElementById('oip-status');
+      oipUpdateStats(textarea.value);
+      if (textarea.value === (textarea.dataset.original || '')) {
+        if (oipSaveTimer) { clearTimeout(oipSaveTimer); oipSaveTimer = null; }
+        status.textContent = 'No changes';
+        status.className = 'ol-status';
+        return;
+      }
+      status.textContent = 'Unsaved…';
+      status.className = 'ol-status';
+      if (oipSaveTimer) clearTimeout(oipSaveTimer);
+      oipSaveTimer = setTimeout(() => oipSave(), OIP_SAVE_DEBOUNCE_MS);
+    }
+
+    function oipOnBlur() {
+      const textarea = document.getElementById('oip-textarea');
+      if (textarea.value === (textarea.dataset.original || '')) return;
+      if (oipSaveTimer) { clearTimeout(oipSaveTimer); oipSaveTimer = null; }
+      oipSave();
+    }
+
+    async function oipSave() {
+      oipSaveTimer = null;
+      const textarea = document.getElementById('oip-textarea');
+      const status = document.getElementById('oip-status');
+      const secret = oipGetSecret();
+      const value = textarea.value;
+      if (!value.trim()) {
+        status.textContent = 'Prompt cannot be empty';
+        status.className = 'ol-status error';
+        return;
+      }
+      if (!secret) {
+        status.textContent = 'Missing admin secret';
+        status.className = 'ol-status error';
+        return;
+      }
+      status.textContent = 'Saving…';
+      status.className = 'ol-status saving';
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_update_onboarding_intro_prompt`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret, p_prompt_text: value }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(res.status === 401 || /unauthorized/i.test(body) ? 'Unauthorized' : body);
+        }
+        const data = await res.json();
+        textarea.dataset.original = value;
+        status.textContent = data.updated_at
+          ? 'Saved · ' + new Date(data.updated_at).toLocaleString()
+          : 'Saved';
+        status.className = 'ol-status saved';
+      } catch (err) {
+        status.textContent = 'Save failed: ' + err.message;
+        status.className = 'ol-status error';
+      }
+    }
+
+    /* ============================================
+       Onboarding First Entry Prompt tab
+       Same pattern as the intro tab but talks to the
+       admin_*_onboarding_first_entry_prompt RPCs.
+       ============================================ */
+    const OFP_SAVE_DEBOUNCE_MS = 1200;
+    let ofpSaveTimer = null;
+
+    function ofpGetSecret() {
+      return document.getElementById('ofp-secret-input').value.trim();
+    }
+
+    function ofpRestoreSecret() {
+      const saved = localStorage.getItem(MEMORY_SECRET_KEY);
+      if (saved) document.getElementById('ofp-secret-input').value = saved;
+    }
+
+    function ofpShowError(msg) {
+      const e = document.getElementById('ofp-error');
+      e.textContent = msg;
+      e.style.display = 'block';
+      document.getElementById('ofp-body').style.display = 'none';
+    }
+
+    function ofpClearError() {
+      const e = document.getElementById('ofp-error');
+      e.style.display = 'none';
+      e.textContent = '';
+    }
+
+    async function ofpConnect() {
+      const secret = ofpGetSecret();
+      if (!secret) { ofpShowError('Enter the admin dashboard secret.'); return; }
+      localStorage.setItem(MEMORY_SECRET_KEY, secret);
+      await ofpLoad();
+    }
+
+    function ofpUpdateStats(text) {
+      const chars = text.length;
+      const lines = text.length === 0 ? 0 : text.split('\n').length;
+      document.getElementById('ofp-stats').textContent =
+        `${chars} chars · ${lines} line${lines === 1 ? '' : 's'}`;
+    }
+
+    function ofpRender(data) {
+      const textarea = document.getElementById('ofp-textarea');
+      const status = document.getElementById('ofp-status');
+      const promptText = data.prompt_text || '';
+      textarea.value = promptText;
+      textarea.dataset.original = promptText;
+      ofpUpdateStats(promptText);
+      status.textContent = data.updated_at
+        ? `last saved ${new Date(data.updated_at).toLocaleString()}`
+        : 'Loaded';
+      status.className = 'ol-status';
+      document.getElementById('ofp-body').style.display = 'block';
+      document.getElementById('ofp-refresh-btn').style.display = '';
+    }
+
+    async function ofpLoad() {
+      ofpClearError();
+      const secret = ofpGetSecret();
+      if (!secret) { ofpShowError('Enter the admin dashboard secret.'); return; }
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_get_onboarding_first_entry_prompt`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          ofpShowError(res.status === 401 || /unauthorized/i.test(body)
+            ? 'Invalid admin secret.'
+            : `Failed to load: ${res.status} ${body}`);
+          return;
+        }
+        ofpRender(await res.json());
+      } catch (err) {
+        ofpShowError('Failed to load: ' + err.message);
+      }
+    }
+
+    function ofpOnInput() {
+      const textarea = document.getElementById('ofp-textarea');
+      const status = document.getElementById('ofp-status');
+      ofpUpdateStats(textarea.value);
+      if (textarea.value === (textarea.dataset.original || '')) {
+        if (ofpSaveTimer) { clearTimeout(ofpSaveTimer); ofpSaveTimer = null; }
+        status.textContent = 'No changes';
+        status.className = 'ol-status';
+        return;
+      }
+      status.textContent = 'Unsaved…';
+      status.className = 'ol-status';
+      if (ofpSaveTimer) clearTimeout(ofpSaveTimer);
+      ofpSaveTimer = setTimeout(() => ofpSave(), OFP_SAVE_DEBOUNCE_MS);
+    }
+
+    function ofpOnBlur() {
+      const textarea = document.getElementById('ofp-textarea');
+      if (textarea.value === (textarea.dataset.original || '')) return;
+      if (ofpSaveTimer) { clearTimeout(ofpSaveTimer); ofpSaveTimer = null; }
+      ofpSave();
+    }
+
+    async function ofpSave() {
+      ofpSaveTimer = null;
+      const textarea = document.getElementById('ofp-textarea');
+      const status = document.getElementById('ofp-status');
+      const secret = ofpGetSecret();
+      const value = textarea.value;
+      if (!value.trim()) {
+        status.textContent = 'Prompt cannot be empty';
+        status.className = 'ol-status error';
+        return;
+      }
+      if (!secret) {
+        status.textContent = 'Missing admin secret';
+        status.className = 'ol-status error';
+        return;
+      }
+      status.textContent = 'Saving…';
+      status.className = 'ol-status saving';
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_update_onboarding_first_entry_prompt`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret, p_prompt_text: value }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(res.status === 401 || /unauthorized/i.test(body) ? 'Unauthorized' : body);
+        }
+        const data = await res.json();
+        textarea.dataset.original = value;
+        status.textContent = data.updated_at
+          ? 'Saved · ' + new Date(data.updated_at).toLocaleString()
+          : 'Saved';
+        status.className = 'ol-status saved';
+      } catch (err) {
+        status.textContent = 'Save failed: ' + err.message;
+        status.className = 'ol-status error';
+      }
+    }
+
+    /* ============================================
+       First-Session Prompts tab
+       Per-prompt onboarding suffixes, edited via the
+       admin_*_onboarding_first_session_prompt(s) RPCs.
+       Empty values are allowed (app falls back to a
+       generic opener).
+       ============================================ */
+    const OFSP_SAVE_DEBOUNCE_MS = 1200;
+    const ofspSaveTimers = {}; // keyed "<variant>:<key>"
+
+    // Each prompt has a prod (`suffix`) and dev (`suffix_dev`) copy. DEBUG app
+    // builds use the dev copy (falling back to prod when blank), matching the
+    // dev realtime base prompt.
+    const OFSP_VARIANTS = {
+      prod: { col: 'suffix',     rpc: 'admin_update_onboarding_first_session_prompt' },
+      dev:  { col: 'suffix_dev', rpc: 'admin_update_onboarding_first_session_prompt_dev' },
+    };
+
+    function ofspGetSecret() {
+      return document.getElementById('ofsp-secret-input').value.trim();
+    }
+
+    function ofspRestoreSecret() {
+      const saved = localStorage.getItem(MEMORY_SECRET_KEY);
+      if (saved) document.getElementById('ofsp-secret-input').value = saved;
+    }
+
+    function ofspShowError(msg) {
+      const e = document.getElementById('ofsp-error');
+      e.textContent = msg;
+      e.style.display = 'block';
+      document.getElementById('ofsp-body').style.display = 'none';
+    }
+
+    function ofspClearError() {
+      const e = document.getElementById('ofsp-error');
+      e.textContent = '';
+      e.style.display = 'none';
+    }
+
+    function ofspEsc(s) {
+      return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    }
+
+    function ofspTaId(variant, key) { return `ofsp-ta-${variant}-${key}`; }
+    function ofspStatusId(variant, key) { return `ofsp-status-${variant}-${key}`; }
+    function ofspStatsId(variant, key) { return `ofsp-stats-${variant}-${key}`; }
+
+    async function ofspConnect() {
+      const secret = ofspGetSecret();
+      if (!secret) { ofspShowError('Enter the admin dashboard secret.'); return; }
+      localStorage.setItem(MEMORY_SECRET_KEY, secret);
+      await ofspLoad();
+    }
+
+    function ofspUpdateStats(variant, key) {
+      const ta = document.getElementById(ofspTaId(variant, key));
+      const text = ta.value;
+      const lines = text.length === 0 ? 0 : text.split('\n').length;
+      document.getElementById(ofspStatsId(variant, key)).textContent =
+        `${text.length} chars · ${lines} line${lines === 1 ? '' : 's'}`;
+    }
+
+    function ofspVariantBlock(p, variant, heading) {
+      const k = ofspEsc(p.key);
+      return `
+        <div style="margin-top:12px">
+          <div class="ol-help" style="margin-bottom:4px">${heading}</div>
+          <div class="rp-shell">
+            <textarea id="${ofspTaId(variant, k)}" class="ol-textarea rp-textarea" rows="12"
+              oninput="ofspOnInput('${variant}','${k}')" onblur="ofspOnBlur('${variant}','${k}')"></textarea>
+            <div class="rp-meta-row">
+              <span class="ol-status" id="${ofspStatusId(variant, k)}"></span>
+              <span class="rp-stats" id="${ofspStatsId(variant, k)}"></span>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function ofspRenderList(prompts) {
+      const list = document.getElementById('ofsp-list');
+      list.innerHTML = prompts.map(p => `
+        <section class="memory-section">
+          <h3>${ofspEsc(p.label)} <span class="rp-stats">(${ofspEsc(p.key)})</span></h3>
+          ${ofspVariantBlock(p, 'prod', 'Production')}
+          ${ofspVariantBlock(p, 'dev', 'Dev (DEBUG builds — blank falls back to production)')}
+        </section>`).join('');
+
+      prompts.forEach(p => {
+        for (const variant of Object.keys(OFSP_VARIANTS)) {
+          const ta = document.getElementById(ofspTaId(variant, p.key));
+          const val = (variant === 'dev' ? p.suffix_dev : p.suffix) || '';
+          ta.value = val;
+          ta.dataset.original = val;
+          ofspUpdateStats(variant, p.key);
+          const status = document.getElementById(ofspStatusId(variant, p.key));
+          status.textContent = p.updated_at
+            ? `last saved ${new Date(p.updated_at).toLocaleString()}`
+            : 'Loaded';
+          status.className = 'ol-status';
+        }
+      });
+
+      document.getElementById('ofsp-body').style.display = 'block';
+      document.getElementById('ofsp-refresh-btn').style.display = '';
+    }
+
+    async function ofspLoad() {
+      ofspClearError();
+      const secret = ofspGetSecret();
+      if (!secret) { ofspShowError('Enter the admin dashboard secret.'); return; }
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_get_onboarding_first_session_prompts`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          ofspShowError(res.status === 401 || /unauthorized/i.test(body)
+            ? 'Invalid admin secret.'
+            : `Failed to load: ${res.status} ${body}`);
+          return;
+        }
+        const data = await res.json();
+        ofspRenderList(data.prompts || []);
+      } catch (err) {
+        ofspShowError('Failed to load: ' + err.message);
+      }
+    }
+
+    function ofspOnInput(variant, key) {
+      const timerKey = `${variant}:${key}`;
+      const ta = document.getElementById(ofspTaId(variant, key));
+      const status = document.getElementById(ofspStatusId(variant, key));
+      ofspUpdateStats(variant, key);
+      if (ta.value === (ta.dataset.original || '')) {
+        if (ofspSaveTimers[timerKey]) { clearTimeout(ofspSaveTimers[timerKey]); ofspSaveTimers[timerKey] = null; }
+        status.textContent = 'No changes';
+        status.className = 'ol-status';
+        return;
+      }
+      status.textContent = 'Unsaved…';
+      status.className = 'ol-status';
+      if (ofspSaveTimers[timerKey]) clearTimeout(ofspSaveTimers[timerKey]);
+      ofspSaveTimers[timerKey] = setTimeout(() => ofspSave(variant, key), OFSP_SAVE_DEBOUNCE_MS);
+    }
+
+    function ofspOnBlur(variant, key) {
+      const timerKey = `${variant}:${key}`;
+      const ta = document.getElementById(ofspTaId(variant, key));
+      if (ta.value === (ta.dataset.original || '')) return;
+      if (ofspSaveTimers[timerKey]) { clearTimeout(ofspSaveTimers[timerKey]); ofspSaveTimers[timerKey] = null; }
+      ofspSave(variant, key);
+    }
+
+    async function ofspSave(variant, key) {
+      const timerKey = `${variant}:${key}`;
+      ofspSaveTimers[timerKey] = null;
+      const ta = document.getElementById(ofspTaId(variant, key));
+      const status = document.getElementById(ofspStatusId(variant, key));
+      const secret = ofspGetSecret();
+      const value = ta.value;
+      if (!secret) {
+        status.textContent = 'Missing admin secret';
+        status.className = 'ol-status error';
+        return;
+      }
+      status.textContent = 'Saving…';
+      status.className = 'ol-status saving';
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${OFSP_VARIANTS[variant].rpc}`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: secret, p_key: key, p_suffix: value }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(res.status === 401 || /unauthorized/i.test(body) ? 'Unauthorized' : body);
+        }
+        const data = await res.json();
+        ta.dataset.original = value;
+        status.textContent = data.updated_at
+          ? 'Saved · ' + new Date(data.updated_at).toLocaleString()
+          : 'Saved';
+        status.className = 'ol-status saved';
+      } catch (err) {
+        status.textContent = 'Save failed: ' + err.message;
+        status.className = 'ol-status error';
+      }
+    }
+  </script>
+</body>
+</html>
