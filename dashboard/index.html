@@ -1221,6 +1221,27 @@
     ];
     let __adminSession = null;
 
+    // Auto-load a tab's data the first time it's opened once logged in, so the
+    // admin never has to click "Connect" per tab — the Google session already
+    // grants access. Subsequent visits keep their state; use each tab's own
+    // Refresh button to reload.
+    const __TAB_LOADERS = {
+      memory: 'loadMemoryUsers', calls: 'ciConnect', openings: 'olConnect',
+      'realtime-prompt': 'rpConnect', 'realtime-prompt-dev': 'rpdConnect',
+      'onboarding-intro-prompt': 'oipConnect', 'onboarding-first-entry-prompt': 'ofpConnect',
+      'onboarding-session-prompts': 'ofspConnect',
+    };
+    const __autoLoaded = {};
+    function __autoConnectTab(tab) {
+      if (!__adminSession) return;
+      const fn = __TAB_LOADERS[tab];
+      if (!fn || __autoLoaded[tab]) return;
+      if (typeof window[fn] === 'function') {
+        __autoLoaded[tab] = true;
+        try { window[fn](); } catch (_e) { __autoLoaded[tab] = false; }
+      }
+    }
+
     const __sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
     });
@@ -1262,6 +1283,8 @@
         const el = document.getElementById(id);
         if (el) { el.value = __ADMIN_SECRET_SENTINEL; el.style.display = 'none'; }
       });
+      const activeBtn = document.querySelector('.tab-btn.active');
+      if (activeBtn && activeBtn.dataset && activeBtn.dataset.tab) __autoConnectTab(activeBtn.dataset.tab);
     }
     async function __refreshAuth() {
       const { data: { session } } = await __sb.auth.getSession();
@@ -1480,6 +1503,7 @@
       if (tab === 'onboarding-intro-prompt') oipRestoreSecret();
       if (tab === 'onboarding-first-entry-prompt') ofpRestoreSecret();
       if (tab === 'onboarding-session-prompts') ofspRestoreSecret();
+      __autoConnectTab(tab);
     }
 
     /* ============================================
