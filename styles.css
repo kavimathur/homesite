@@ -1,160 +1,436 @@
+/* Teapot Labs — retro terminal tea-house. Flat olive paper, ink lines, amber tea. */
+
+:root {
+  --paper: #cccc97;
+  --ink: #4a4a35;
+  --ink-soft: #5f5f46;
+  --sage: #9a9a7a;
+  --amber: #a87b2a;
+  --amber-deep: #7f5c1c;
+  --amber-bright: #c09a3e;
+  --cream: #cccc97;
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+}
+
 body {
-  background-color: #cccc97;
-  color: #4a4a35;
+  min-height: 100%;
   font-family: 'VT323', monospace;
+  color: var(--ink);
+  background-color: var(--paper);
+  overflow-x: hidden;
+}
+
+/* ------------------------------------------------------------------ */
+/* Homepage hero                                                       */
+/* ------------------------------------------------------------------ */
+
+.hero {
   min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 0 3rem;
+}
+
+.stage {
+  width: 100%;
   display: flex;
   justify-content: center;
-  align-items: center;
+  overflow: hidden;
 }
+
+#scene {
+  display: block;
+  width: min(94vw, 940px);
+  height: auto;
+}
+
+/* Scene dressing fades in once the pot takes its place */
+.scene-dress {
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.scene-dress.show {
+  opacity: 1;
+}
+
+.pot-shadow {
+  fill: var(--ink);
+  opacity: 0.1;
+}
+
+/* Shared china: paper fill, ink line — reads as line art on the flat bg */
+.china {
+  fill: var(--cream);
+  stroke: var(--ink);
+  stroke-width: 4.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.spout-fill {
+  fill: var(--cream);
+}
+
+.spout-line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 4.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.pot-handle {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.stripe {
+  fill: none;
+  stroke: var(--sage);
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.cup .china {
+  stroke-width: 4;
+}
+
+.cup-handle {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 4.5;
+  stroke-linecap: round;
+}
+
+.tea-top {
+  fill: var(--amber-deep);
+}
+
+#stream {
+  opacity: 0;
+}
+
+#splash {
+  fill: var(--amber-bright);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+#splash.on {
+  animation: splash-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes splash-pulse {
+  from {
+    opacity: 0.35;
+    transform: scale(0.8, 0.7);
+  }
+  to {
+    opacity: 0.85;
+    transform: scale(1.25, 1.1);
+  }
+}
+
+/* Steam */
+.steam,
+.pot-steam {
+  fill: none;
+  stroke: var(--sage);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.pot-steam {
+  stroke-width: 3.5;
+}
+
+.cup.filled .steam {
+  animation: steam-rise 2.6s ease-in-out infinite;
+}
+
+.cup.filled .s2 {
+  animation-delay: -1.3s;
+}
+
+.pot-steam {
+  animation: pot-steam-rise 3.2s ease-in-out infinite;
+}
+
+.ps2 {
+  animation-delay: -1.6s;
+}
+
+@keyframes steam-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  35% {
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.25;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes pot-steam-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  35% {
+    opacity: 0.45;
+  }
+  70% {
+    opacity: 0.2;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+
+/* Copy */
+.copy {
+  text-align: center;
+  margin-top: -0.5rem;
+  padding: 0 1.5rem;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: copy-rise 0.95s cubic-bezier(0.2, 0.7, 0.2, 1) 2.9s forwards;
+}
+
+@keyframes copy-rise {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.brand {
+  font-size: 1.1rem;
+  font-weight: 400;
+  letter-spacing: 0.35em;
+  text-indent: 0.35em; /* balance the trailing letter-space */
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.brand::before,
+.brand::after {
+  content: '';
+  width: 34px;
+  height: 2px;
+  background: var(--ink);
+  opacity: 0.35;
+}
+
+.headline {
+  font-size: clamp(2.8rem, 7vw, 4.5rem);
+  font-weight: 400;
+  line-height: 1.05;
+}
+
+.headline em {
+  font-style: normal;
+}
+
+/* ------------------------------------------------------------------ */
+/* Content pages (privacy, contact)                                    */
+/* ------------------------------------------------------------------ */
 
 .container {
-  text-align: center;
-  padding: 2rem;
-  width: 100%;
-  max-width: 1200px;
+  max-width: 760px;
   margin: 0 auto;
-  transform: translateY(-8vh);
+  padding: 3.5rem 1.5rem 5rem;
 }
 
-.animation-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: auto;
-  margin-bottom: 0rem;
-}
-
-#teapot-animation {
-  width: 100%;
-  max-width: 400px;
-  height: auto;
-  display: block;
-  margin: 0 auto;
-  background: none;
-}
-
-.message {
-  font-size: 2.5rem;
-  font-weight: bold;
-  margin-top: -3rem;
-  color: #4a4a35;
-}
-
-/* Navigation */
 .nav-links {
   display: flex;
   justify-content: center;
-  gap: 2rem;
-  margin-bottom: 2rem;
+  gap: 2.5rem;
+  margin-bottom: 3.5rem;
   flex-wrap: wrap;
 }
 
 .nav-links a {
-  color: #4a4a35;
+  color: var(--ink-soft);
   text-decoration: none;
-  font-size: 1.5rem;
-  transition: opacity 0.3s ease;
+  font-size: 1.15rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.25s ease, border-color 0.25s ease;
 }
 
 .nav-links a:hover {
-  opacity: 0.7;
-  text-decoration: underline;
+  color: var(--amber-deep);
+  border-color: var(--amber-deep);
 }
 
-/* Content pages */
 .page-title {
-  font-size: 3rem;
-  font-weight: bold;
-  margin-bottom: 2rem;
-  color: #4a4a35;
+  font-size: clamp(2.6rem, 5.5vw, 3.6rem);
+  font-weight: 400;
   text-align: center;
+  margin-bottom: 2.5rem;
+  line-height: 1.1;
 }
 
 .content {
-  max-width: 800px;
+  max-width: 680px;
   margin: 0 auto;
   text-align: left;
-  line-height: 1.8;
-  font-size: 1.2rem;
-  padding: 0 1rem;
+  font-size: 1.35rem;
+  line-height: 1.55;
 }
 
 .content section {
-  margin-bottom: 3rem;
+  margin-bottom: 2.75rem;
 }
 
 .content h2 {
-  font-size: 2rem;
-  margin-bottom: 1.5rem;
-  margin-top: 2.5rem;
-  color: #4a4a35;
-  line-height: 1.3;
+  font-size: 1.9rem;
+  font-weight: 400;
+  margin: 2.5rem 0 1rem;
+  line-height: 1.2;
 }
 
 .content h3 {
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
-  margin-top: 1.5rem;
-  color: #4a4a35;
-  line-height: 1.3;
+  font-size: 1.55rem;
+  font-weight: 400;
+  margin: 1.5rem 0 0.75rem;
+  line-height: 1.2;
 }
 
 .content p {
-  margin-bottom: 1.5rem;
-  line-height: 1.8;
+  margin-bottom: 1.25rem;
 }
 
-.content ul {
-  margin-left: 0;
-  margin-bottom: 1.5rem;
-  padding-left: 2rem;
-  list-style-position: outside;
-}
-
+.content ul,
 .content ol {
-  margin-left: 0;
-  margin-bottom: 1.5rem;
-  padding-left: 2rem;
+  margin: 0 0 1.25rem;
+  padding-left: 1.5rem;
   list-style-position: outside;
 }
 
 .content li {
-  margin-bottom: 1rem;
-  line-height: 1.8;
-  padding-left: 0.5rem;
+  margin-bottom: 0.6rem;
+  padding-left: 0.35rem;
 }
 
 .content a {
-  color: #4a4a35;
+  color: var(--amber-deep);
   text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  transition: opacity 0.2s ease;
 }
 
 .content a:hover {
   opacity: 0.7;
 }
 
+.content strong {
+  font-weight: 400;
+  color: var(--amber-deep);
+}
+
 .last-updated {
-  font-style: italic;
-  margin-bottom: 3rem;
+  color: var(--ink-soft);
   text-align: center;
-  line-height: 1.8;
+  margin-bottom: 3rem;
 }
 
 .contact-info {
-  background-color: rgba(74, 74, 53, 0.1);
-  padding: 2rem;
-  border-radius: 8px;
+  background: rgba(74, 74, 53, 0.08);
+  border: 2px solid rgba(74, 74, 53, 0.25);
+  padding: 1.75rem 2rem;
+  border-radius: 4px;
   margin-bottom: 2rem;
-  line-height: 1.8;
+}
+
+.contact-info h2 {
+  margin-top: 0;
 }
 
 .contact-info p {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.contact-info p:last-child {
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Responsive & motion preferences                                     */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 620px) {
+  .stage {
+    display: block;
+  }
+
+  /* Zoom the scene so the pour stays readable; keep its visual centre
+     (x ≈ 54% of the viewBox) at the middle of the screen. */
+  #scene {
+    width: 165vw;
+    max-width: none;
+    margin-left: calc(50vw - 89vw);
+  }
+
+  .copy {
+    margin-top: 0.25rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .steam,
+  .pot-steam {
+    animation: none;
+    opacity: 0.35;
+  }
+
+  #splash.on {
+    animation: none;
+  }
+
+  .scene-dress {
+    transition: none;
+  }
+
+  .copy {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
