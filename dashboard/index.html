@@ -1226,6 +1226,7 @@
     // grants access. Subsequent visits keep their state; use each tab's own
     // Refresh button to reload.
     const __TAB_LOADERS = {
+      kpi: 'refreshAll',
       memory: 'loadMemoryUsers', calls: 'ciConnect', openings: 'olConnect',
       'realtime-prompt': 'rpConnect', 'realtime-prompt-dev': 'rpdConnect',
       'onboarding-intro-prompt': 'oipConnect', 'onboarding-first-entry-prompt': 'ofpConnect',
@@ -1478,8 +1479,10 @@
       btn.textContent = 'Refresh';
     }
 
-    refreshAll();
-    setInterval(refreshAll, 60000);
+    // KPI is now admin-only, so it can't load before the session attaches. It
+    // loads via __autoConnectTab once login resolves (the active tab on load is
+    // 'kpi'); the periodic refresh no-ops until a session exists.
+    setInterval(function () { if (__adminSession) refreshAll(); }, 60000);
 
     /* ============================================
        Tab switching
