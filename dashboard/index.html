@@ -167,6 +167,25 @@
       height: 200px;
     }
 
+    /* Recap-cap editable card */
+    .recap-cap-row { display: flex; gap: 0.5rem; margin-top: 0.35rem; }
+    .recap-cap-row input {
+      width: 100%; min-width: 0;
+      background: #18181b; color: #f4f4f5;
+      border: 1px solid #3f3f46; border-radius: 6px;
+      padding: 0.4rem 0.6rem; font-size: 1.1rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .recap-cap-row button {
+      background: #27272a; color: #e4e4e7; border: 1px solid #3f3f46;
+      padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer;
+      font-size: 0.85rem; transition: background 0.15s;
+    }
+    .recap-cap-row button:hover { background: #3f3f46; }
+    .recap-cap-status { font-size: 0.7rem; color: #71717a; margin-top: 0.45rem; }
+    .recap-cap-status.saved { color: #4ade80; }
+    .recap-cap-status.error { color: #f87171; }
+
     /* Callers table */
     .table-card {
       background: #18181b;
@@ -805,6 +824,16 @@
     <div class="card">
       <div class="card-label">Avg Call Duration</div>
       <div class="card-value loading" id="avg-duration">--</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Recap Daily Cap</div>
+      <div class="recap-cap-row">
+        <input type="number" id="recap-cap-input" min="0" step="1" placeholder="--"
+               oninput="recapCapOnInput()"
+               onkeydown="if (event.key === 'Enter') saveRecapCap()">
+        <button id="recap-cap-save" onclick="saveRecapCap()">Save</button>
+      </div>
+      <div class="recap-cap-status" id="recap-cap-status">Unique recap users allowed per day</div>
     </div>
   </div>
 
@@ -1466,13 +1495,68 @@
       fetchCallers();
     }
 
+    /* Recap global daily cap (editable, backed by admin_config via the
+       admin_get/update_goal_recap_cap RPCs; the goal-reflection-recap edge
+       function reads the same value as its circuit breaker). */
+    let __recapCapDirty = false;
+    function recapCapOnInput() { __recapCapDirty = true; }
+
+    async function fetchRecapCap() {
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_get_goal_recap_cap`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: '' }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const input = document.getElementById('recap-cap-input');
+        // Never clobber an in-progress edit with the periodic refresh.
+        if (!__recapCapDirty && document.activeElement !== input
+            && data && typeof data.cap === 'number') {
+          input.value = data.cap;
+        }
+      } catch (_) { /* non-critical card; leave placeholder */ }
+    }
+
+    async function saveRecapCap() {
+      const input = document.getElementById('recap-cap-input');
+      const status = document.getElementById('recap-cap-status');
+      const cap = parseInt(input.value, 10);
+      if (!Number.isFinite(cap) || cap < 0) {
+        status.textContent = 'Enter a non-negative number';
+        status.className = 'recap-cap-status error';
+        return;
+      }
+      status.textContent = 'Saving…';
+      status.className = 'recap-cap-status';
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_update_goal_recap_cap`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: '', p_cap: cap }),
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(/unauthorized/i.test(body) ? 'Unauthorized' : body);
+        }
+        const data = await res.json();
+        __recapCapDirty = false;
+        status.textContent = 'Saved · cap is now ' + data.cap;
+        status.className = 'recap-cap-status saved';
+      } catch (err) {
+        status.textContent = 'Save failed: ' + (err.message || err);
+        status.className = 'recap-cap-status error';
+      }
+    }
+
     async function refreshAll() {
       const btn = document.getElementById('refresh-btn');
       btn.disabled = true;
       btn.textContent = 'Loading...';
       document.getElementById('error-banner').style.display = 'none';
 
-      await Promise.all([fetchKPIs(), fetchTimeseries(), fetchCallers()]);
+      await Promise.all([fetchKPIs(), fetchTimeseries(), fetchCallers(), fetchRecapCap()]);
 
       document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
       btn.disabled = false;
