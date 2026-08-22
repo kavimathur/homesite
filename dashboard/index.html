@@ -186,6 +186,39 @@
     .recap-cap-status.saved { color: #4ade80; }
     .recap-cap-status.error { color: #f87171; }
 
+    /* Recent feedback notes */
+    .feedback-note {
+      padding: 0.85rem 0.25rem;
+      border-bottom: 1px solid #1e1e22;
+    }
+    .feedback-note:last-child { border-bottom: none; }
+    .feedback-note-head {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .feedback-play {
+      background: #27272a; color: #e4e4e7;
+      border: 1px solid #3f3f46; border-radius: 999px;
+      width: 2rem; height: 2rem; flex: none;
+      cursor: pointer; font-size: 0.8rem;
+      transition: background 0.15s;
+    }
+    .feedback-play:hover { background: #3f3f46; }
+    .feedback-play:disabled { opacity: 0.4; cursor: default; }
+    .feedback-note-who { font-weight: 600; color: #f4f4f5; font-size: 0.9rem; }
+    .feedback-note-meta { font-size: 0.75rem; color: #71717a; }
+    .feedback-note-transcript {
+      margin-top: 0.5rem;
+      font-size: 0.85rem; color: #d4d4d8; line-height: 1.5;
+    }
+    .feedback-note-bullets {
+      margin: 0.4rem 0 0 1.1rem;
+      font-size: 0.8rem; color: #a1a1aa; line-height: 1.5;
+    }
+    .feedback-note-error { font-size: 0.75rem; color: #f87171; margin-top: 0.3rem; }
+
     /* Callers table */
     .table-card {
       background: #18181b;
@@ -888,6 +921,15 @@
       </tbody>
     </table>
   </div>
+
+  <div class="section-header" style="margin-top: 2rem;">
+    <h2>Recent Feedback Notes</h2>
+  </div>
+  <div class="table-card">
+    <div id="feedback-notes">
+      <div class="empty-state">Loading...</div>
+    </div>
+  </div>
   </div><!-- /tab-kpi -->
 
   <div id="tab-memory" class="tab-panel" hidden>
@@ -1556,13 +1598,125 @@
       }
     }
 
+    /* Recent feedback notes: onboarding "What's your feedback?" recordings
+       (behavior_feedback joined with onboarding_answers via
+       admin_recent_feedback_notes). Play buttons fetch a one-hour signed URL
+       for the private feedback-audio bucket from admin-feedback-audio. */
+    let __feedbackAudio = null; // the one <audio> playing at a time
+    let __feedbackNotes = [];
+
+    async function fetchFeedbackNotes() {
+      const container = document.getElementById('feedback-notes');
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_recent_feedback_notes`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_secret: '', p_limit: 20 }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        __feedbackNotes = Array.isArray(data.notes) ? data.notes : [];
+        renderFeedbackNotes();
+      } catch (err) {
+        container.innerHTML = `<div class="empty-state">Couldn't load feedback notes: ${escapeHtml(String(err.message || err))}</div>`;
+      }
+    }
+
+    function renderFeedbackNotes() {
+      const container = document.getElementById('feedback-notes');
+      if (__feedbackNotes.length === 0) {
+        container.innerHTML = '<div class="empty-state">No feedback notes yet</div>';
+        return;
+      }
+      container.innerHTML = __feedbackNotes.map((n, i) => {
+        const who = escapeHtml(n.first_name || 'anonymous');
+        const when = n.created_at ? new Date(n.created_at).toLocaleString() : '';
+        const goals = Array.isArray(n.selected_goals) && n.selected_goals.length
+          ? escapeHtml(n.selected_goals.join(', ')) : '';
+        const meta = [when, goals].filter(Boolean).join(' · ');
+        const play = n.audio_path
+          ? `<button class="feedback-play" id="feedback-play-${i}" onclick="playFeedbackNote(${i})" title="Play recording">▶</button>`
+          : '<button class="feedback-play" disabled title="No audio stored">▶</button>';
+        const transcript = n.transcript
+          ? `<div class="feedback-note-transcript">${escapeHtml(n.transcript)}</div>`
+          : '<div class="feedback-note-transcript" style="color:#71717a">(no transcript)</div>';
+        const bullets = Array.isArray(n.bullets) && n.bullets.length
+          ? `<ul class="feedback-note-bullets">${n.bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`
+          : '';
+        return `<div class="feedback-note">
+          <div class="feedback-note-head">
+            ${play}
+            <span class="feedback-note-who">${who}</span>
+            <span class="feedback-note-meta">${meta}</span>
+          </div>
+          ${transcript}
+          ${bullets}
+          <div class="feedback-note-error" id="feedback-error-${i}"></div>
+        </div>`;
+      }).join('');
+    }
+
+    async function playFeedbackNote(index) {
+      const note = __feedbackNotes[index];
+      const btn = document.getElementById(`feedback-play-${index}`);
+      const errorEl = document.getElementById(`feedback-error-${index}`);
+      if (!note || !btn) return;
+      errorEl.textContent = '';
+
+      // Second tap on the playing note stops it.
+      if (__feedbackAudio && __feedbackAudio.dataset.index === String(index)) {
+        __feedbackAudio.pause();
+        __feedbackAudio = null;
+        btn.textContent = '▶';
+        return;
+      }
+      stopFeedbackAudio();
+
+      btn.textContent = '…';
+      try {
+        if (!note.__signedUrl) {
+          const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-feedback-audio`, {
+            method: 'POST',
+            headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: note.audio_path }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.url) throw new Error(data.error || `HTTP ${res.status}`);
+          note.__signedUrl = data.url;
+        }
+        const audio = new Audio(note.__signedUrl);
+        audio.dataset.index = String(index);
+        audio.onended = () => { btn.textContent = '▶'; __feedbackAudio = null; };
+        audio.onerror = () => {
+          btn.textContent = '▶';
+          __feedbackAudio = null;
+          note.__signedUrl = null; // stale/expired URL — re-sign on next tap
+          errorEl.textContent = 'Playback failed — tap to retry';
+        };
+        await audio.play();
+        __feedbackAudio = audio;
+        btn.textContent = '⏸';
+      } catch (err) {
+        btn.textContent = '▶';
+        errorEl.textContent = 'Audio failed: ' + (err.message || err);
+      }
+    }
+
+    function stopFeedbackAudio() {
+      if (!__feedbackAudio) return;
+      const prior = document.getElementById(`feedback-play-${__feedbackAudio.dataset.index}`);
+      if (prior) prior.textContent = '▶';
+      __feedbackAudio.pause();
+      __feedbackAudio = null;
+    }
+
     async function refreshAll() {
       const btn = document.getElementById('refresh-btn');
       btn.disabled = true;
       btn.textContent = 'Loading...';
       document.getElementById('error-banner').style.display = 'none';
 
-      await Promise.all([fetchKPIs(), fetchTimeseries(), fetchCallers(), fetchRecapCap()]);
+      await Promise.all([fetchKPIs(), fetchTimeseries(), fetchCallers(), fetchRecapCap(), fetchFeedbackNotes()]);
 
       document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
       btn.disabled = false;
