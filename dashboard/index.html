@@ -833,7 +833,8 @@
                onkeydown="if (event.key === 'Enter') saveRecapCap()">
         <button id="recap-cap-save" onclick="saveRecapCap()">Save</button>
       </div>
-      <div class="recap-cap-status" id="recap-cap-status">Unique recap users allowed per day</div>
+      <div class="recap-cap-status" id="recap-cap-usage">Unique recap users allowed per day</div>
+      <div class="recap-cap-status" id="recap-cap-status"></div>
     </div>
   </div>
 
@@ -1515,6 +1516,11 @@
         if (!__recapCapDirty && document.activeElement !== input
             && data && typeof data.cap === 'number') {
           input.value = data.cap;
+        }
+        // Today's usage doubles as the abuse signal for the breaker.
+        if (data && typeof data.users_today === 'number') {
+          document.getElementById('recap-cap-usage').textContent =
+            `Today: ${data.users_today} users · ${data.calls_today ?? 0} calls`;
         }
       } catch (_) { /* non-critical card; leave placeholder */ }
     }
