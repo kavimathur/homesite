@@ -834,6 +834,8 @@
     <button class="tab-btn" data-tab="onboarding-intro-prompt" onclick="switchTab('onboarding-intro-prompt', this)">Onboarding Intro</button>
     <button class="tab-btn" data-tab="onboarding-first-entry-prompt" onclick="switchTab('onboarding-first-entry-prompt', this)">Onboarding First Entry</button>
     <button class="tab-btn" data-tab="onboarding-session-prompts" onclick="switchTab('onboarding-session-prompts', this)">First-Session Prompts</button>
+    <button class="tab-btn" data-tab="voice-notes" onclick="switchTab('voice-notes', this)">Voice Notes</button>
+    <button class="tab-btn" data-tab="creator-mode" onclick="switchTab('creator-mode', this)">Creator Mode</button>
   </nav>
 
   <div id="tab-kpi" class="tab-panel">
@@ -901,6 +903,10 @@
     <div class="chart-card">
       <div class="chart-card-label">Avg Call Duration</div>
       <div class="chart-wrap"><canvas id="chart-avg-duration"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-label">Onboarding Call End Reasons</div>
+      <div class="chart-wrap"><canvas id="chart-end-reasons"></canvas></div>
     </div>
   </div>
 
@@ -1273,6 +1279,37 @@
     </div>
   </div><!-- /tab-onboarding-session-prompts -->
 
+  <div id="tab-voice-notes" class="tab-panel" hidden>
+    <div class="memory-controls">
+      <button class="memory-btn" onclick="vnLoad()" id="vn-refresh-btn">Refresh</button>
+    </div>
+    <p class="ol-help">Onboarding voice notes — the goal reflection (before the first call) and the behavior-feedback note (after it). Every submission is logged by the edge functions, successes and failures alike; errors are invisible to the user (they see a "Got it!" acknowledgement), so this is the only place they surface. Feedback notes keep their audio; goal reflections keep transcript + duration only.</p>
+    <div id="vn-summary" style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;"></div>
+    <div id="vn-error" class="empty-state" style="display:none"></div>
+    <div id="vn-list"></div>
+  </div><!-- /tab-voice-notes -->
+
+  <div id="tab-creator-mode" class="tab-panel" hidden>
+    <div class="memory-controls">
+      <button class="memory-btn" onclick="cmLoad()" id="cm-refresh-btn">Refresh</button>
+    </div>
+    <p class="ol-help">Accounts allowed to see the <b>Creator Mode</b> section in the app's Settings (demo personas, scripted calls, dot colour control). The app checks this list server-side (<code>creator_mode_allowed()</code>) each time Settings opens, so changes take effect on the user's next visit to Settings — no app update needed. Match the email the person signs in with; matching is case-insensitive.</p>
+    <div id="cm-error" class="empty-state" style="display:none"></div>
+    <section class="memory-section">
+      <h3>
+        <span>Allowlist <span class="meta" id="cm-meta"></span></span>
+      </h3>
+      <form class="ol-new-form" style="display:block" onsubmit="cmAdd(event)">
+        <div class="ol-new-actions" style="margin-top:0">
+          <input type="email" id="cm-new-email" class="memory-input" placeholder="person@example.com" autocomplete="off" spellcheck="false" style="flex:1;min-width:260px">
+          <button type="submit" class="memory-btn ol-new-primary" id="cm-add-btn">Add email</button>
+          <span id="cm-add-status" class="ol-status"></span>
+        </div>
+      </form>
+      <div id="cm-list"></div>
+    </section>
+  </div><!-- /tab-creator-mode -->
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
@@ -1302,7 +1339,8 @@
       memory: 'loadMemoryUsers', calls: 'ciConnect', openings: 'olConnect',
       'realtime-prompt': 'rpConnect', 'realtime-prompt-dev': 'rpdConnect',
       'onboarding-intro-prompt': 'oipConnect', 'onboarding-first-entry-prompt': 'ofpConnect',
-      'onboarding-session-prompts': 'ofspConnect',
+      'onboarding-session-prompts': 'ofspConnect', 'voice-notes': 'vnLoad',
+      'creator-mode': 'cmLoad',
     };
     const __autoLoaded = {};
     function __autoConnectTab(tab) {
@@ -1530,12 +1568,83 @@
       }
     }
 
+    /* ---- Onboarding call end reasons (stacked bar) ---- */
+    // Why onboarding first-session calls ended (calls.end_reason, stamped by
+    // OnboardingCallController). Known reasons get fixed colors/labels so the
+    // chart stays readable as new reasons appear.
+    const END_REASON_META = {
+      user_stop:      { label: 'User tapped stop',   color: '#22c55e' },
+      time_cap:       { label: 'Hit 5-min cap',      color: '#3b82f6' },
+      callkit_end:    { label: 'CallKit ended',      color: '#f59e0b' },
+      session_error:  { label: 'Session error',      color: '#ef4444' },
+      stream_closed:  { label: 'Connection dropped', color: '#a855f7' },
+      interruption:   { label: 'Audio interrupted',  color: '#ec4899' },
+      realtime_ended: { label: 'Realtime ended',     color: '#71717a' },
+    };
+    const END_REASON_FALLBACK_COLORS = ['#14b8a6', '#eab308', '#6366f1', '#f97316'];
+
+    async function fetchEndReasons() {
+      const errorBanner = document.getElementById('error-banner');
+      try {
+        const body = currentRange != null ? JSON.stringify({ p_days: currentRange }) : JSON.stringify({ p_days: null });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_onboarding_call_end_reasons`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body,
+        });
+        if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+        const data = await res.json();
+        const labels = (data.dates || []).map(formatDateLabel);
+        const reasonKeys = Object.keys(data.reasons || {}).sort();
+
+        let fallbackIdx = 0;
+        const datasets = reasonKeys.map(key => {
+          const meta = END_REASON_META[key] ||
+            { label: key, color: END_REASON_FALLBACK_COLORS[fallbackIdx++ % END_REASON_FALLBACK_COLORS.length] };
+          return {
+            label: meta.label,
+            data: data.reasons[key],
+            backgroundColor: meta.color,
+            borderWidth: 0,
+            stack: 'reasons',
+          };
+        });
+
+        const ctx = document.getElementById('chart-end-reasons').getContext('2d');
+        if (charts['chart-end-reasons']) charts['chart-end-reasons'].destroy();
+        charts['chart-end-reasons'] = new Chart(ctx, {
+          type: 'bar',
+          data: { labels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                position: 'bottom',
+                labels: { color: '#a1a1aa', font: { size: 10 }, boxWidth: 10 },
+              },
+            },
+            scales: {
+              x: { stacked: true, ticks: { color: '#71717a', font: { size: 11 } }, grid: { color: '#27272a' } },
+              y: { stacked: true, beginAtZero: true, ticks: { color: '#71717a', font: { size: 11 }, precision: 0 }, grid: { color: '#27272a' } },
+            },
+            interaction: { intersect: false, mode: 'index' },
+          },
+        });
+      } catch (err) {
+        errorBanner.textContent = 'Failed to load end reasons: ' + err.message;
+        errorBanner.style.display = 'block';
+      }
+    }
+
     function setRange(days, btn) {
       currentRange = days;
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       fetchTimeseries();
       fetchCallers();
+      fetchEndReasons();
     }
 
     /* Recap global daily cap (editable, backed by admin_config via the
@@ -1716,7 +1825,7 @@
       btn.textContent = 'Loading...';
       document.getElementById('error-banner').style.display = 'none';
 
-      await Promise.all([fetchKPIs(), fetchTimeseries(), fetchCallers(), fetchRecapCap(), fetchFeedbackNotes()]);
+      await Promise.all([fetchKPIs(), fetchTimeseries(), fetchCallers(), fetchEndReasons(), fetchRecapCap(), fetchFeedbackNotes()]);
 
       document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
       btn.disabled = false;
@@ -1727,6 +1836,102 @@
     // loads via __autoConnectTab once login resolves (the active tab on load is
     // 'kpi'); the periodic refresh no-ops until a session exists.
     setInterval(function () { if (__adminSession) refreshAll(); }, 60000);
+
+    /* ---- Voice Notes tab ---- */
+    const VN_STATUS_COLORS = {
+      ok: '#22c55e', unintelligible: '#f59e0b', no_substance: '#eab308',
+      rate_limited: '#a855f7', audio_out_of_bounds: '#ef4444',
+      rate_check_failed: '#ef4444', error: '#ef4444',
+    };
+
+    function vnFmtDuration(s) {
+      if (s == null) return '—';
+      const secs = Math.round(Number(s));
+      return secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`;
+    }
+
+    async function vnLoad() {
+      const errEl = document.getElementById('vn-error');
+      const listEl = document.getElementById('vn-list');
+      const sumEl = document.getElementById('vn-summary');
+      errEl.style.display = 'none';
+      listEl.innerHTML = '<div class="empty-state">Loading…</div>';
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_voice_notes`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_limit: 100 }),
+        });
+        if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+        const data = await res.json();
+        const notes = data.notes || [];
+
+        // Summary chips: total + per-status counts over the loaded window.
+        const counts = {};
+        notes.forEach(n => { counts[n.status] = (counts[n.status] || 0) + 1; });
+        const chip = (label, count, color) =>
+          `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid #27272a;border-radius:999px;font-size:12px;color:#d4d4d8;">` +
+          `<span style="width:8px;height:8px;border-radius:50%;background:${color};"></span>${label}: <b>${count}</b></span>`;
+        sumEl.innerHTML = chip('total', notes.length, '#3b82f6') +
+          Object.keys(counts).sort().map(s => chip(s, counts[s], VN_STATUS_COLORS[s] || '#71717a')).join('');
+
+        if (notes.length === 0) {
+          listEl.innerHTML = '<div class="empty-state">No voice notes logged yet</div>';
+          return;
+        }
+
+        listEl.innerHTML = notes.map((n, i) => {
+          const when = new Date(n.created_at).toLocaleString('en-US', {
+            month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+          });
+          const who = escapeHtml(n.first_name || n.email || (n.user_id ? n.user_id.slice(0, 8) : 'unknown'));
+          const kind = n.kind === 'behavior_feedback' ? 'feedback' : 'reflection';
+          const statusColor = VN_STATUS_COLORS[n.status] || '#71717a';
+          const transcript = n.transcript
+            ? `<div style="margin-top:8px;font-size:13px;line-height:1.55;color:#a1a1aa;white-space:pre-wrap;">${escapeHtml(n.transcript)}</div>`
+            : '';
+          const audio = n.audio_path
+            ? `<div style="margin-top:8px;" id="vn-audio-${i}"><button class="memory-btn" onclick="vnPlay(${i}, '${escapeHtml(n.audio_path)}')">▶ Play audio</button></div>`
+            : '';
+          return `<div style="border:1px solid #27272a;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;">
+              <b style="color:#e4e4e7;">${who}</b>
+              <span style="color:#71717a;">${kind} · ${n.source}</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;color:${statusColor};">
+                <span style="width:7px;height:7px;border-radius:50%;background:${statusColor};"></span>${escapeHtml(n.status)}</span>
+              <span style="color:#71717a;">${vnFmtDuration(n.duration_seconds)}</span>
+              <span style="color:#52525b;margin-left:auto;">${when}</span>
+            </div>
+            ${transcript}${audio}
+          </div>`;
+        }).join('');
+      } catch (err) {
+        listEl.innerHTML = '';
+        sumEl.innerHTML = '';
+        errEl.textContent = 'Failed to load voice notes: ' + err.message;
+        errEl.style.display = 'block';
+      }
+    }
+
+    // Swap the play button for an inline player backed by a short-lived
+    // signed URL from admin-feedback-audio.
+    async function vnPlay(index, path) {
+      const holder = document.getElementById(`vn-audio-${index}`);
+      if (!holder) return;
+      holder.innerHTML = '<span style="font-size:12px;color:#71717a;">signing…</span>';
+      try {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-feedback-audio`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path }),
+        });
+        const data = await res.json();
+        if (!data.success || !data.url) throw new Error(data.error || 'signing failed');
+        holder.innerHTML = `<audio controls autoplay src="${data.url}" style="width:100%;max-width:420px;height:34px;"></audio>`;
+      } catch (err) {
+        holder.innerHTML = `<span style="font-size:12px;color:#f2777a;">audio unavailable: ${escapeHtml(err.message)}</span>`;
+      }
+    }
 
     /* ============================================
        Tab switching
@@ -2295,6 +2500,122 @@
     const OL_SAVE_DEBOUNCE_MS = 1200;
     const olSaveTimers = new Map();  // key → timeout id
     let olRows = [];                  // last-fetched rows, cached for dirty-check
+
+    /* ---------- Creator Mode allowlist tab ---------- */
+    // Backed by public.creator_mode_allowlist via the is_admin()-gated RPCs
+    // admin_list_creator_mode_allowlist / admin_add_creator_mode_email /
+    // admin_remove_creator_mode_email (joice repo migration
+    // 20260903120000_creator_mode_allowlist.sql).
+
+    async function cmRpc(name, body) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {}),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let msg = text;
+        try { const j = JSON.parse(text); if (j && j.message) msg = j.message; } catch (_e) {}
+        const err = new Error(msg);
+        err.status = res.status;
+        throw err;
+      }
+      return res.json();
+    }
+
+    function cmShowError(msg) {
+      const e = document.getElementById('cm-error');
+      e.textContent = msg;
+      e.style.display = 'block';
+    }
+
+    async function cmLoad() {
+      const errEl = document.getElementById('cm-error');
+      const listEl = document.getElementById('cm-list');
+      errEl.style.display = 'none';
+      listEl.innerHTML = '<div class="empty-state">Loading…</div>';
+      try {
+        const data = await cmRpc('admin_list_creator_mode_allowlist');
+        const rows = data.emails || [];
+        document.getElementById('cm-meta').textContent =
+          rows.length ? `${rows.length} account${rows.length === 1 ? '' : 's'}` : '';
+        if (rows.length === 0) {
+          listEl.innerHTML = '<div class="empty-state">Nobody has Creator Mode access yet</div>';
+          return;
+        }
+        listEl.innerHTML = rows.map(cmItemHTML).join('');
+      } catch (err) {
+        listEl.innerHTML = '';
+        cmShowError(/unauthorized/i.test(err.message)
+          ? 'Not authorized — this account is not in admin_users.'
+          : 'Failed to load: ' + err.message);
+      }
+    }
+
+    function cmItemHTML(row) {
+      const email = olEscapeHTML(row.email);
+      const added = row.created_at ? new Date(row.created_at).toLocaleString() : '';
+      const by = row.added_by_email ? ` by ${olEscapeHTML(row.added_by_email)}` : '';
+      const acct = row.has_account
+        ? ''
+        : `<span class="ol-tod-chip" title="No Joice account has signed in with this exact email yet — check for typos.">no account yet</span>`;
+      return `
+        <div class="ol-item" data-email="${email}">
+          <div class="ol-item-header">
+            <div class="ol-item-title">${email}${acct}</div>
+            <span class="ol-row-actions">
+              <button class="memory-btn ol-delete-btn" onclick="cmRemove('${email}', this)">Remove</button>
+            </span>
+          </div>
+          <div class="ol-item-footer">
+            <span class="ol-status">${added ? `added ${added}${by}` : ''}</span>
+            <span></span>
+          </div>
+        </div>`;
+    }
+
+    async function cmAdd(evt) {
+      if (evt) evt.preventDefault();
+      const input = document.getElementById('cm-new-email');
+      const btn = document.getElementById('cm-add-btn');
+      const status = document.getElementById('cm-add-status');
+      const email = input.value.trim().toLowerCase();
+      if (!email) { olNewError(status, 'Enter an email'); return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { olNewError(status, 'That does not look like an email'); return; }
+      btn.disabled = true;
+      status.textContent = 'Adding…';
+      status.className = 'ol-status saving';
+      try {
+        await cmRpc('admin_add_creator_mode_email', { p_email: email });
+        status.textContent = 'Added ✓';
+        status.className = 'ol-status saved';
+        input.value = '';
+        await cmLoad();
+      } catch (err) {
+        if (/already exists/i.test(err.message)) olNewError(status, 'That email is already on the list.');
+        else if (/unauthorized/i.test(err.message)) olNewError(status, 'Not authorized — this account is not in admin_users.');
+        else olNewError(status, 'Failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function cmRemove(email, btn) {
+      if (!confirm(`Remove Creator Mode access for ${email}? They lose the Settings section the next time they open Settings.`)) return;
+      btn.disabled = true;
+      btn.textContent = 'Removing…';
+      try {
+        await cmRpc('admin_remove_creator_mode_email', { p_email: email });
+        await cmLoad();
+      } catch (err) {
+        cmShowError(/unauthorized/i.test(err.message)
+          ? 'Not authorized — this account is not in admin_users.'
+          : 'Remove failed: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = 'Remove';
+      }
+    }
 
     function olGetSecret() {
       return document.getElementById('ol-secret-input').value.trim();
