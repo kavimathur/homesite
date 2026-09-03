@@ -836,6 +836,7 @@
     <button class="tab-btn" data-tab="onboarding-session-prompts" onclick="switchTab('onboarding-session-prompts', this)">First-Session Prompts</button>
     <button class="tab-btn" data-tab="voice-notes" onclick="switchTab('voice-notes', this)">Voice Notes</button>
     <button class="tab-btn" data-tab="creator-mode" onclick="switchTab('creator-mode', this)">Creator Mode</button>
+    <button class="tab-btn" data-tab="onboarding-pages" onclick="switchTab('onboarding-pages', this)">Onboarding Pages</button>
   </nav>
 
   <div id="tab-kpi" class="tab-panel">
@@ -1310,6 +1311,19 @@
     </section>
   </div><!-- /tab-creator-mode -->
 
+  <div id="tab-onboarding-pages" class="tab-panel" hidden>
+    <div class="memory-controls">
+      <button class="memory-btn" onclick="opLoad()" id="op-refresh-btn">Refresh</button>
+    </div>
+    <p class="ol-help">Every page of the app's onboarding flow, in order. Switch a page <b>off</b> and the app skips straight past it (forward, back, and on resume); the header progress bar counts only pages that are on. The app fetches this list when onboarding starts and remembers it for that run, so a change applies to the <em>next</em> onboarding session, not one already in progress. <b>Welcome</b> and <b>Create an account</b> are always on. Recap and intro pages follow the page they belong to: turning off the first call also hides its intro, the quiet room, the prompt chooser and the call recap, whatever their own switches say.</p>
+    <div id="op-summary" style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;"></div>
+    <div id="op-error" class="empty-state" style="display:none"></div>
+    <section class="memory-section">
+      <h3><span>Pages <span class="meta" id="op-meta"></span></span></h3>
+      <div id="op-list"></div>
+    </section>
+  </div><!-- /tab-onboarding-pages -->
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
@@ -1340,7 +1354,7 @@
       'realtime-prompt': 'rpConnect', 'realtime-prompt-dev': 'rpdConnect',
       'onboarding-intro-prompt': 'oipConnect', 'onboarding-first-entry-prompt': 'ofpConnect',
       'onboarding-session-prompts': 'ofspConnect', 'voice-notes': 'vnLoad',
-      'creator-mode': 'cmLoad',
+      'creator-mode': 'cmLoad', 'onboarding-pages': 'opLoad',
     };
     const __autoLoaded = {};
     function __autoConnectTab(tab) {
@@ -2608,6 +2622,108 @@
           : 'Remove failed: ' + err.message);
         btn.disabled = false;
         btn.textContent = 'Remove';
+      }
+    }
+
+    /* ---------- Onboarding Pages (feature flags) tab ---------- */
+    // Backed by public.onboarding_page_flags via the is_admin()-gated RPCs
+    // admin_list_onboarding_page_flags / admin_set_onboarding_page_flag
+    // (joice repo migration 20260903150000_onboarding_page_flags.sql).
+    // OP_LOCKED and OP_IMPLIED mirror NewOnboardingFlowModel.lockedSteps and
+    // .impliedPrerequisite in the app — the app is the source of truth; these
+    // only shape the display here.
+    const OP_LOCKED = { welcome: 'entry point of the flow', auth: 'required to finish onboarding' };
+    const OP_IMPLIED = {
+      firstVoiceNote: 'goalElaboration', goalRecap: 'goalElaboration',
+      firstConversation: 'firstCall', quietRoom: 'firstCall', firstSessionPrompt: 'firstCall', callRecap: 'firstCall',
+      behaviorFeedbackRecap: 'behaviorFeedback',
+    };
+    let opRows = [];
+
+    function opEffectiveOn(step) {
+      if (OP_LOCKED[step]) return true;
+      const row = opRows.find(r => r.step === step);
+      if (row && !row.enabled) return false;
+      if (OP_IMPLIED[step]) return opEffectiveOn(OP_IMPLIED[step]);
+      return true;
+    }
+
+    async function opLoad() {
+      const errEl = document.getElementById('op-error');
+      const listEl = document.getElementById('op-list');
+      errEl.style.display = 'none';
+      listEl.innerHTML = '<div class="empty-state">Loading…</div>';
+      try {
+        const data = await cmRpc('admin_list_onboarding_page_flags');
+        opRows = data.pages || [];
+        opRender();
+      } catch (err) {
+        listEl.innerHTML = '';
+        errEl.textContent = /unauthorized/i.test(err.message)
+          ? 'Not authorized — this account is not in admin_users.'
+          : 'Failed to load: ' + err.message;
+        errEl.style.display = 'block';
+      }
+    }
+
+    function opRender() {
+      const listEl = document.getElementById('op-list');
+      const shown = opRows.filter(r => opEffectiveOn(r.step)).length;
+      document.getElementById('op-meta').textContent = opRows.length ? `${shown} of ${opRows.length} shown` : '';
+      const chip = (label, count, color) =>
+        `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid #27272a;border-radius:999px;font-size:12px;color:#d4d4d8;">` +
+        `<span style="width:8px;height:8px;border-radius:50%;background:${color};"></span>${label}: <b>${count}</b></span>`;
+      document.getElementById('op-summary').innerHTML =
+        chip('shown', shown, '#22c55e') + chip('skipped', opRows.length - shown, '#71717a');
+      listEl.innerHTML = opRows.length
+        ? opRows.map(opItemHTML).join('')
+        : '<div class="empty-state">No pages found — has the migration been applied?</div>';
+    }
+
+    function opItemHTML(row) {
+      const step = olEscapeHTML(row.step);
+      const title = olEscapeHTML(row.title || row.step);
+      const file = olEscapeHTML(row.page_file || '');
+      const locked = OP_LOCKED[row.step];
+      const effective = opEffectiveOn(row.step);
+      const impliedOff = row.enabled && !effective;
+      const when = row.updated_at ? new Date(row.updated_at).toLocaleString() : '';
+      const by = row.updated_by_email ? ` by ${olEscapeHTML(row.updated_by_email)}` : '';
+      let note = '';
+      if (locked) note = `<span class="ol-tod-chip" title="${olEscapeHTML(locked)}">always on</span>`;
+      else if (impliedOff) note = `<span class="ol-tod-chip" title="Follows ${olEscapeHTML(OP_IMPLIED[row.step])}">skipped with ${olEscapeHTML(OP_IMPLIED[row.step])}</span>`;
+      const toggle = locked
+        ? `<input type="checkbox" checked disabled title="${olEscapeHTML(locked)}">`
+        : `<input type="checkbox" ${row.enabled ? 'checked' : ''} onchange="opToggle('${step}', this)" title="${row.enabled ? 'On — click to skip this page' : 'Off — click to show this page'}">`;
+      return `
+        <div class="ol-item" data-step="${step}" style="opacity:${effective ? 1 : 0.55}">
+          <div class="ol-item-header">
+            <div class="ol-item-title"><span style="color:#71717a;font-variant-numeric:tabular-nums;margin-right:8px;">${row.position}.</span>${title}${note}</div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#a1a1aa;cursor:${locked ? 'default' : 'pointer'};">
+              <span class="op-state">${effective ? 'on' : 'off'}</span>${toggle}
+            </label>
+          </div>
+          <div class="ol-item-footer">
+            <span class="ol-status">${step} · ${file}${when ? ` · changed ${when}${by}` : ''}</span>
+            <span></span>
+          </div>
+        </div>`;
+    }
+
+    async function opToggle(step, checkbox) {
+      const enabled = checkbox.checked;
+      checkbox.disabled = true;
+      try {
+        await cmRpc('admin_set_onboarding_page_flag', { p_step: step, p_enabled: enabled });
+        await opLoad();
+      } catch (err) {
+        checkbox.checked = !enabled;
+        checkbox.disabled = false;
+        const errEl = document.getElementById('op-error');
+        errEl.textContent = /unauthorized/i.test(err.message)
+          ? 'Not authorized — this account is not in admin_users.'
+          : `Could not update ${step}: ${err.message}`;
+        errEl.style.display = 'block';
       }
     }
 
