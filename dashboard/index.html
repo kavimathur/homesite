@@ -1939,15 +1939,9 @@
     function switchTab(tab, btn) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      document.getElementById('tab-kpi').hidden = (tab !== 'kpi');
-      document.getElementById('tab-memory').hidden = (tab !== 'memory');
-      document.getElementById('tab-calls').hidden = (tab !== 'calls');
-      document.getElementById('tab-openings').hidden = (tab !== 'openings');
-      document.getElementById('tab-realtime-prompt').hidden = (tab !== 'realtime-prompt');
-      document.getElementById('tab-realtime-prompt-dev').hidden = (tab !== 'realtime-prompt-dev');
-      document.getElementById('tab-onboarding-intro-prompt').hidden = (tab !== 'onboarding-intro-prompt');
-      document.getElementById('tab-onboarding-first-entry-prompt').hidden = (tab !== 'onboarding-first-entry-prompt');
-      document.getElementById('tab-onboarding-session-prompts').hidden = (tab !== 'onboarding-session-prompts');
+      // Every panel is <div id="tab-<name>" class="tab-panel">; toggling by
+      // class means a newly added tab can't be left permanently hidden.
+      document.querySelectorAll('.tab-panel').forEach(p => { p.hidden = (p.id !== 'tab-' + tab); });
       if (tab === 'memory') restoreMemorySecret();
       if (tab === 'calls') ciRestoreSecret();
       if (tab === 'openings') olRestoreSecret();
